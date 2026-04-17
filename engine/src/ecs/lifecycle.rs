@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 
 use crate::ecs::{components::{Component, id::ComponentId}, entities::{id::EntityId}, event::EventKey, worlds::World};
 
@@ -33,6 +33,7 @@ pub struct ComponentHooks {
     pub(crate) on_despawn: Option<ComponentHook>,
 }
 
+#[allow(dead_code)]
 impl ComponentHooks {
     pub(crate) fn update_from_component<C: Component + ?Sized>(&mut self) -> &mut Self {
         if let Some(hook) = C::on_add() {
@@ -151,6 +152,7 @@ pub struct Despawn {
     pub entity: EntityId,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct RemovedComponentEntity(EntityId);
 
@@ -171,7 +173,7 @@ impl RemovedComponentMessages {
     }
 
     pub fn update(&mut self) {
-        for (_component_id, messages) in self.event_sets.iter_mut() {
+        for (_component_id, _messages) in self.event_sets.iter_mut() {
             todo!("update each message")
         }
     }
@@ -186,7 +188,7 @@ impl RemovedComponentMessages {
         self.event_sets.get(&component_id.into())
     }
 
-    pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: EntityId) {
+    pub fn write(&mut self, _component_id: impl Into<ComponentId>, _entity: EntityId) {
         todo!("write")
     }
 }

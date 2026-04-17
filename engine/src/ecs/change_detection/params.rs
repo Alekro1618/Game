@@ -10,10 +10,10 @@ pub struct Mut<'w, T: ?Sized> {
 impl<'w, T: ?Sized> Mut<'w, T> {
     pub fn new(
         value: &'w mut T,
-        added: &'w mut Tick,
-        last_changed: &'w mut Tick,
-        last_run: Tick,
-        this_run: Tick
+        _added: &'w mut Tick,
+        _last_changed: &'w mut Tick,
+        _last_run: Tick,
+        _this_run: Tick
     ) -> Self {
         Self {
             value,

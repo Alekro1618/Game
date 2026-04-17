@@ -1,6 +1,5 @@
 use std::{any::TypeId, collections::{HashMap, hash_map::Iter}, fmt::Display, hash::Hash};
 
-use macroquad::ui::Layout;
 
 use crate::ecs::{components::info::TypeIdMap, hash::NoOpHash};
 

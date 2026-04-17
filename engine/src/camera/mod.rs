@@ -1,10 +1,10 @@
-use crate::{ecs::components::{Component, Mutable, StorageType}, math::{rect::Rect, transform::Transform, vec::Vec2}};
+use crate::{ecs::components::{Component, Mutable, StorageType}, math::{rect::Rect, vec::Vec2}};
 
 
 pub struct Camera {
-    view : Rect,
-    rotation : f32,
-    direction : Vec2
+    _view : Rect,
+    _rotation : f32,
+    _direction : Vec2
     
 }
 

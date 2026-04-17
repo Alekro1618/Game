@@ -1,6 +1,6 @@
-use std::{any::Any, cell::UnsafeCell, collections::HashMap, ops::{Index, IndexMut}};
+use std::{cell::UnsafeCell, collections::HashMap};
 
-use crate::ecs::{change_detection::tick::Tick, components::{Component, StorageType, id::{ComponentId, ComponentIdsArray}, info::{ComponentDescriptor, ComponentInfo}}, entities::{self, Entity, id::EntityId}, storage::column::Column};
+use crate::ecs::{change_detection::tick::Tick, components::{Component, StorageType, id::ComponentId, info::ComponentInfo}, entities::id::EntityId, storage::column::Column};
 
 pub mod column;
 
@@ -125,8 +125,8 @@ impl Table {
 impl Drop for Table {
     fn drop(&mut self) {
         self.entities.clear();
-        for col in self.columns.values_mut() {
-            drop(col)
+        for _col in self.columns.values() {
+            //TODO:implement drop
         }
     }
 }

@@ -1,6 +1,6 @@
-use std::{alloc::{Layout, alloc, realloc}, any::Any, cell::UnsafeCell, fmt::Alignment, num::NonZeroUsize, ptr::NonNull};
+use std::{alloc::{Layout, alloc, realloc}, cell::UnsafeCell, ptr::NonNull};
 
-use crate::ecs::{change_detection::tick::Tick, components::Component, entities::id::EntityId};
+use crate::ecs::{change_detection::tick::Tick, components::Component};
 
 pub struct Column {
     item_layout: Layout,
@@ -52,9 +52,9 @@ impl Column {
         self.data.as_ptr()
     }
 
-    unsafe fn row_ptr(&self, row: usize) -> *mut u8 {
+    unsafe fn row_ptr(&self, row: usize) -> *mut u8 { unsafe {
         self.data.as_ptr().add(row * self.item_layout.size())
-    }
+    }}
 
 
     fn grow(&mut self) {

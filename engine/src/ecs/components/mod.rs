@@ -4,7 +4,7 @@ pub mod id;
 pub mod info;
 pub mod register;
 
-use crate::ecs::{components::{ id::ComponentId}, lifecycle::ComponentHook, worlds::{FromWorld, World}};
+use crate::ecs::lifecycle::ComponentHook;
 
 pub trait Component: Send + Sync + 'static {
     const STORAGE_TYPE: StorageType;

@@ -9,7 +9,6 @@ pub mod archetype;
 pub mod storage;
 pub mod query;
 pub mod event;
-pub mod observers;
 pub mod systems;
 pub mod name;
 pub mod schedule;

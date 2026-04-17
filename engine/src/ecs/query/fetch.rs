@@ -1,6 +1,6 @@
-use std::{cell::UnsafeCell, marker::PhantomData, ptr::NonNull};
+use std::marker::PhantomData;
 
-use crate::ecs::{archetype::ArchetypeId, change_detection::{params::Mut, tick::Tick}, components::{Component, id::{ComponentId, ComponentIdsArray}}, entities::id::EntityId, observers::AnyNamedSystem, query::query_world::WorldQuery, storage::Table, worlds::World};
+use crate::ecs::{change_detection::{params::Mut, tick::Tick}, components::{Component, id::ComponentId}, entities::id::EntityId, query::query_world::WorldQuery, storage::Table, worlds::World};
 
 pub trait QueryData: WorldQuery {
     const IS_READ_ONLY: bool;
@@ -25,30 +25,30 @@ impl WorldQuery for () {
 
     type State = ();
 
-    fn init_state(world: &mut World) -> Self::State {
+    fn init_state(_world: &mut World) -> Self::State {
         ()
     }
 
     fn matches_component_set(
-        state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         true
     }
     
     unsafe fn set_table<'w, 's>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &'s Self::State,
-        table: &'w Table,
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _table: &'w Table,
     ) {
         ()
     }
     
     fn init_fetch<'w, 's>(
-        world: &'w World,
-        state: &'s Self::State,
-        last_run: Tick,
-        this_run: Tick,
+        _world: &'w World,
+        _state: &'s Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> Self::Fetch<'w> {
         ()
     }
@@ -72,10 +72,10 @@ impl<T : Component> WorldQuery for &T {
     type State = ComponentId;
     
     fn init_fetch<'w, 's>(
-        world: &'w World,
-        state: &'s Self::State,
-        last_run: Tick,
-        this_run: Tick,
+        _world: &'w World,
+        _state: &'s Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> Self::Fetch<'w> {
         ReadFetch {
             ptr : None,
@@ -123,9 +123,9 @@ impl<T: Component> QueryData for &T {
         fetch: &mut Self::Fetch<'w>,
         _entity : EntityId,
         table_row: u32,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Option<Self::Item<'w, 's>> { unsafe {
         Some(&*fetch.ptr?.add(table_row as usize))
-    }
+    }}
 }
 
 pub struct WriteFetch<'w, T : Component> {
@@ -146,10 +146,10 @@ impl<'__w, T : Component> WorldQuery for &'__w mut T {
     type State = ComponentId;
     
     fn init_fetch<'w, 's>(
-        world: &'w World,
-        state: &'s Self::State,
-        last_run: Tick,
-        this_run: Tick,
+        _world: &'w World,
+        _state: &'s Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> Self::Fetch<'w> {
         WriteFetch {
             ptr : None,
@@ -197,9 +197,9 @@ impl<'__w, T: Component> QueryData for &'__w mut T {
         fetch: &mut Self::Fetch<'w>,
         _entity : EntityId,
         table_row: u32,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Option<Self::Item<'w, 's>> { unsafe {
         Some(Mut { value: &mut *fetch.ptr?.add(table_row as usize) })
-    }
+    }}
 
 }
 
@@ -254,7 +254,7 @@ impl<A : QueryData, B : QueryData> QueryData for (A, B) {
     type Item<'w, 's> = (A::Item<'w, 's>, B::Item<'w, 's>);
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
-        item: Self::Item<'wlong, 's>,
+        _item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         todo!()
     }

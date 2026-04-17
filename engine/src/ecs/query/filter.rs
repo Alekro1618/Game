@@ -17,10 +17,10 @@ impl QueryFilter for () {
     const IS_ARCHETYPAL: bool = false;
 
     fn filter_fetch(
-        state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: EntityId,
-        table_row: u32,
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: EntityId,
+        _table_row: u32,
     ) -> bool {
         true
     }
@@ -34,10 +34,10 @@ impl<T: Component> WorldQuery for With<T> {
     type State = ComponentId;
 
     fn init_fetch<'w, 's>(
-        world: &'w crate::ecs::worlds::World,
-        state: &'s Self::State,
-        last_run: crate::ecs::change_detection::tick::Tick,
-        this_run: crate::ecs::change_detection::tick::Tick,
+        _world: &'w crate::ecs::worlds::World,
+        _state: &'s Self::State,
+        _last_run: crate::ecs::change_detection::tick::Tick,
+        _this_run: crate::ecs::change_detection::tick::Tick,
     ) -> Self::Fetch<'w> {
         
     }
@@ -47,9 +47,9 @@ impl<T: Component> WorldQuery for With<T> {
     }
 
     unsafe fn set_table<'w, 's>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &'s Self::State,
-        table: &'w crate::ecs::storage::Table,
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _table: &'w crate::ecs::storage::Table,
     ) { }
 
     fn matches_component_set(
@@ -64,10 +64,10 @@ impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     fn filter_fetch(
-        state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: EntityId,
-        table_row: u32,
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: EntityId,
+        _table_row: u32,
     ) -> bool {
         true
     }

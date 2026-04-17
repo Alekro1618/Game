@@ -1,7 +1,7 @@
-use std::{any::{Any, TypeId}, collections::{HashMap}};
+use std::collections::{HashMap};
 
 
-use crate::{app::main_schedule::ScheduleLabel, ecs::{components::{Component, Mutable, StorageType}, observers::AnyNamedSystem, resource::Resource, schedule::{config::IntoSchedule, node::Systems, schedule_system::ScheduleSystem}, worlds::World}, error::error::{Error, ErrorKind}};
+use crate::{app::main_schedule::ScheduleLabel, ecs::{components::{Component, Mutable, StorageType}, resource::Resource, schedule::{config::IntoSchedule, node::Systems, schedule_system::ScheduleSystem}, worlds::World}};
 
 
 pub struct Schedules {

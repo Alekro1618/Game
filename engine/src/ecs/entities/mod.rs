@@ -112,14 +112,6 @@ impl EntityMeta {
             spawned: false
     };
 
-    pub fn new(generation : u32, location : EntityLocation, spawned : bool) -> Self {
-        Self {
-            generation,
-            location: Some(location),
-            spawned
-        }
-    }
-
     pub fn new_no_location(generation : u32, spawned : bool) -> Self {
         Self {
             generation,

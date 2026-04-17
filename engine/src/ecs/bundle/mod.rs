@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use crate::ecs::{change_detection::tick::Tick, components::{id::{ComponentId, ComponentIdsArray}, info::Components, register::{ComponentIds, ComponentsRegistrator}}, entities::id::EntityId, storage::Table};
+use crate::ecs::{change_detection::tick::Tick, components::{id::{ComponentId, ComponentIdsArray}, register::ComponentsRegistrator}, storage::Table};
 pub mod info;
 
 pub trait Bundle: Send + Sync + 'static {

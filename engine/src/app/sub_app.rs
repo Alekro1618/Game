@@ -29,7 +29,7 @@ impl SubApp {
         Self::default()
     }
 
-    fn run_as_app<F>(&mut self, f: F)
+    fn _run_as_app<F>(&mut self, f: F)
     where
         F: FnOnce(&mut App),
     {

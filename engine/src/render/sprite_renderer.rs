@@ -1,6 +1,6 @@
-use macroquad::{shapes::{DrawRectangleParams, draw_rectangle_ex}, texture::draw_texture_ex};
+use macroquad::shapes::{DrawRectangleParams, draw_rectangle_ex};
 
-use crate::{app::{App, main_schedule::ScheduleLabel, plugin::Plugin, sub_app::SubApp}, ecs::{systems::query::Query, worlds::World}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
+use crate::{app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{systems::query::Query, worlds::World}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
 
 pub struct RenderPlugin;
 
@@ -23,7 +23,7 @@ impl Plugin for RenderPlugin {
 
 fn render(drawable : Query<(&Transform, &Sprite)>) {
     for (transform, sprite) in drawable {
-        if let Some(texture) = &sprite.texture {
+        if let Some(_texture) = &sprite.texture {
             todo!("");
         } else {
             draw_rectangle_ex(

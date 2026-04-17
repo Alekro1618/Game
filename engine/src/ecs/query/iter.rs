@@ -1,7 +1,7 @@
-use std::f32::consts::PI;
 
-use crate::ecs::{archetype::{self, Archetype, Archetypes}, change_detection::tick::Tick, components::StorageType, entities::{Entity, id::EntityId}, query::{fetch::{self, QueryData}, filter::QueryFilter, state::QueryState}, storage::{Storages, Table}, worlds::World};
+use crate::ecs::{archetype::Archetypes, change_detection::tick::Tick, entities::id::EntityId, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, storage::Table, worlds::World};
 
+#[allow(dead_code)]
 pub struct QueryIter<'w, 's, D: QueryData, F: QueryFilter> {
     world: &'w World,
     tables: &'w Vec<Table>,

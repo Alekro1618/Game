@@ -1,4 +1,3 @@
-use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum ScheduleLabel {

@@ -1,5 +1,6 @@
 use crate::ecs::{archetype::ArchetypeId, query::{fetch::QueryData, filter::QueryFilter, iter::QueryIter}, systems::query::{Query}, worlds::World};
 
+#[allow(dead_code)]
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,

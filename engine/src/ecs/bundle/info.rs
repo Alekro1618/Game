@@ -24,7 +24,7 @@ impl<A: Component + 'static> Bundle for (A,)  {
 
     fn insert_into_table(
         self, 
-        components : &ComponentIdsArray,
+        _components : &ComponentIdsArray,
         table: &mut crate::ecs::storage::Table,
         tick : Tick
     ) {

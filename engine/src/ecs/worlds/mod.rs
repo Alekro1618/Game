@@ -1,8 +1,8 @@
-use std::{any::{Any, TypeId, type_name}, sync::atomic::AtomicU32};
+use std::{any::TypeId, sync::atomic::AtomicU32};
 
 use macroquad::prelude::warn;
 
-use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::{self, Archetypes}, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::{ComponentId, ComponentIdsArray}, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, Entity, EntityAllocator, EntityLocation, id::EntityId}, lifecycle::{Add, ComponentHooks, Despawn, Insert, Remove, RemovedComponentMessages, Replace}, observers::Observers, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::commands::{Commands, command::CommandQueue}, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
+use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::Archetypes, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::ComponentId, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, lifecycle::RemovedComponentMessages, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::commands::command::CommandQueue, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
 mod id;
 pub mod assert;
 
@@ -16,7 +16,6 @@ pub struct World {
     pub archetypes: Archetypes,
     pub storages: Storages,
     pub bundles: Bundles,
-    pub observers: Observers,
     pub removed_components: RemovedComponentMessages,
     pub change_tick: AtomicU32,
     pub last_change_tick: Tick,
@@ -35,7 +34,6 @@ impl Default for World {
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
-            observers: Observers::default(),
             removed_components: Default::default(),
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
@@ -152,11 +150,6 @@ impl World {
     #[inline]
     pub fn removed_components(&self) -> &RemovedComponentMessages {
         &self.removed_components
-    }
-
-    #[inline]
-    pub fn observers(&self) -> &Observers {
-        &self.observers
     }
 
     #[inline]

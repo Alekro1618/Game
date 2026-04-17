@@ -1,6 +1,6 @@
-use std::{collections::{HashMap, hash_map::Entry}, ops::{Index, IndexMut}};
+use std::{collections::HashMap, ops::{Index, IndexMut}};
 
-use crate::ecs::{components::{id::{ComponentId, ComponentIdsArray}, info::Components}, entities::{EntityLocation, id::EntityId}, observers::Observers, storage::TableId};
+use crate::ecs::{components::id::{ComponentId, ComponentIdsArray}, entities::{EntityLocation, id::EntityId}};
 
 
 
@@ -19,13 +19,6 @@ impl ArchetypeId {
     pub fn index(self) -> usize {
         self.0 as usize
     }
-}
-
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) enum ComponentStatus {
-    Added,
-    Existing,
 }
 
 
@@ -75,6 +68,7 @@ impl Archetype {
     }
 }
 
+#[allow(dead_code)]
 pub struct Archetypes {
     pub archetypes: Vec<Archetype>,
     by_components: HashMap<ComponentIdsArray, ArchetypeId>,
@@ -126,12 +120,6 @@ impl Archetypes {
         self.by_components.insert(table_components.clone(), id);
 
         id
-    }
-
-    pub(crate) fn update_by_component(
-        &mut self
-    ) {
-        
     }
 
     pub(crate) fn get_id(&self, table_components: &ComponentIdsArray) -> Option<ArchetypeId> {

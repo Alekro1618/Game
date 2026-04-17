@@ -59,7 +59,7 @@ pub trait SystemParamTuple {
     type State: Send + Sync + 'static;
     type Item<'w>;
     fn init_state(world: &mut World) -> Self::State;
-    fn apply(state: &mut Self::State, world: &mut World) {}
+    fn apply(_state: &mut Self::State, _world: &mut World) {}
     unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w>;
 }
 
@@ -77,9 +77,9 @@ impl SystemParamTuple for () {
 
     type Item<'w> = ();
 
-    fn init_state(world: &mut World) -> Self::State {}
+    fn init_state(_world: &mut World) -> Self::State {}
 
-    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {}
+    unsafe fn get_param<'w>(_state: &'w mut Self::State, _world: &'w mut World) -> Self::Item<'w> {}
 }
 
 impl<R : Resource + Default> SystemParamTuple for &R {
@@ -91,7 +91,7 @@ impl<R : Resource + Default> SystemParamTuple for &R {
         world.init_resource::<R>();
     }
     
-    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+    unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
         world.get_resource::<R>().unwrap()
     }
 }
@@ -105,7 +105,7 @@ impl<R : Resource + Default> SystemParamTuple for &mut R {
         world.init_resource::<R>();
     }
     
-    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+    unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
         world.get_resource_mut::<R>().unwrap()
     }
 }
@@ -123,7 +123,7 @@ impl SystemParamTuple for Commands<'_> {
         state.apply(world);
     }
 
-    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+    unsafe fn get_param<'w>(state: &'w mut Self::State, _world: &'w mut World) -> Self::Item<'w> {
         Commands::from(state)
     }
 }
@@ -149,7 +149,7 @@ where F : Send + Sync + 'static + Fn() -> () {
 
     fn run(
         &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
+        _param_value: <Self::Param as SystemParamTuple>::Item<'_>,
     ) {
         self()
     }

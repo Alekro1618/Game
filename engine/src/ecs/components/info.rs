@@ -1,4 +1,4 @@
-use std::{alloc::Layout, any::{Any, TypeId}, borrow::Cow, collections::HashMap, mem::needs_drop, sync::PoisonError};
+use std::{alloc::Layout, any::{Any, TypeId}, borrow::Cow, collections::HashMap, mem::needs_drop};
 
 use crate::ecs::{components::{Component, StorageType, id::ComponentId, ComponentMutability}, hash::NoOpHash, lifecycle::ComponentHooks};
 
@@ -17,7 +17,7 @@ impl ComponentInfo {
 
     #[inline]
     pub fn name(&self) -> &str {
-        self.descriptor.name.clone()
+        self.descriptor.name
     }
 
     #[inline]
@@ -136,7 +136,7 @@ impl ComponentDescriptor {
     /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> &str {
-        self.name.clone()
+        self.name
     }
 
     /// Returns whether this component is mutable.
@@ -145,7 +145,7 @@ impl ComponentDescriptor {
         self.mutable
     }
 
-    fn initialize(&mut self, id: ComponentId, components: &mut Components) {
+    fn initialize(&mut self, _id: ComponentId, _components: &mut Components) {
         //self.relationship_accessor.initialize(id, components);
     }
 }

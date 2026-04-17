@@ -1,6 +1,6 @@
-use std::{alloc::{Layout, alloc}, any::TypeId, collections::HashMap, ops::{Deref, DerefMut}};
+use std::{alloc::{Layout, alloc}, any::TypeId, collections::HashMap};
 
-use crate::ecs::{components::{Component, Mutable, StorageType, id::ComponentId}, entities::{Entity, id::EntityId}};
+use crate::ecs::components::{Component, Mutable};
 
 
 pub trait Resource: Component<Mutability = Mutable> {}
@@ -34,9 +34,9 @@ impl ResourceEntities {
     }
 
     pub fn insert<R: Resource>(&mut self, value : R) {
-        unsafe fn drop_resource<R>(ptr: *mut u8) {
+        unsafe fn drop_resource<R>(ptr: *mut u8) { unsafe {
             ptr.cast::<R>().drop_in_place();
-        }
+        }}
 
         let layout = Layout::new::<R>();
         let ptr = unsafe { alloc(layout) };

@@ -1,8 +1,8 @@
-use std::{collections::HashMap, num::NonZero, pin::Pin, time::{Duration, Instant}};
+use std::{collections::HashMap, num::NonZero, pin::Pin};
 
 use macroquad::{color::WHITE, window::{clear_background, next_frame}};
 
-use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin, sub_app::{SubApp, SubApps}}, ecs::schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, error::error::Error};
+use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin, sub_app::{SubApp, SubApps}}, ecs::schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}};
 
 pub mod main_schedule;
 pub mod plugin;
@@ -11,7 +11,7 @@ pub mod sub_app;
 
 type RunnerFn = Box<dyn FnMut(App) -> Pin<Box<dyn Future<Output = AppExit>>>>;
 
-fn run_once(mut app: App) -> AppExit {
+fn _run_once(mut app: App) -> AppExit {
     app.update();
 
     app.should_exit().unwrap_or(AppExit::Success)
@@ -39,7 +39,7 @@ async fn run_update(mut app: App) -> AppExit {
     }
 }
 
-fn wrap_run_update(mut app: App) -> Pin<Box<dyn Future<Output = AppExit>>> {
+fn wrap_run_update(app: App) -> Pin<Box<dyn Future<Output = AppExit>>> {
     Box::pin(run_update(app))
 }
 
