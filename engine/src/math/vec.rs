@@ -1,9 +1,21 @@
-use std::ops::{Add, AddAssign, BitXor, Mul, Neg, Sub};
+use std::{ fmt::Display, ops::{Add, AddAssign, BitXor, Mul, Neg, Sub}};
 
-#[derive(Clone, Copy, PartialEq)]
+pub fn vec2(x : impl Into<f32>, y : impl Into<f32>) -> Vec2{
+    Vec2::new(x.into(), y.into())
+}
+
+
+#[derive(Clone, Copy, PartialEq, Default, Debug)]
 pub struct Vec2 {
     pub x : f32,
     pub y : f32
+}
+
+impl Display for Vec2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let strings = format!("({:.2}, {:.2})", self.x, self.y);
+        f.write_str(&strings)
+    }
 }
 
 impl Vec2 {
@@ -98,6 +110,19 @@ impl Vec2 {
     pub fn lerp(self, rhs: Self, s: f32) -> Self {
         (1.0 - s) * self  + s * rhs 
     }
+
+    #[inline]
+    pub fn mult_by(self, rhs: Self) -> Self {
+        Vec2 {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y 
+        }
+    }
+
+    #[inline]
+    pub fn map(self, action : impl Fn(f32) -> f32) -> Self {
+        Self::new(action(self.x),  action(self.y))
+    }
 }
 
 impl Mul for Vec2 {
@@ -167,5 +192,11 @@ impl BitXor for Vec2 {
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         self.x * rhs.x + self.y * rhs.y
+    }
+}
+
+impl Into<Vec2> for (f32, f32) {
+    fn into(self) -> Vec2 {
+        Vec2::new(self.0, self.1)
     }
 }

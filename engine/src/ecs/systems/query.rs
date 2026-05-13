@@ -1,4 +1,4 @@
-use crate::ecs::{change_detection::tick::Tick, query::{fetch::QueryData, filter::QueryFilter, iter::QueryIter, state::QueryState}, worlds::World};
+use crate::{ecs::{change_detection::tick::Tick, entities::id::EntityId, query::{fetch::QueryData, filter::QueryFilter, iter::QueryIter, state::QueryState}, worlds::World}, error::error::{Error, ErrorKind}};
 
 pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     world: &'world mut World,
@@ -26,6 +26,33 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn iter_inner(self) -> QueryIter<'w, 's, D, F> {
         QueryIter::new(self.world, self.state, self.last_run, self.this_run)
+    }
+
+    #[inline]
+    pub fn iter<'d: 'w>(&'d self) -> QueryIter<'w, 's, D, F> {
+        QueryIter::new(self.world, self.state, self.last_run, self.this_run)
+    }
+
+    pub fn get_mut<'t>(self, entity : EntityId) -> Result<D::Item<'w, 's>, Error> {
+        let mut fetch =  D::init_fetch(self.world, &self.state.fetch_state, self.last_run, self.this_run);
+        let mut filter = F::init_fetch(self.world, &self.state.filter_state, self.last_run, self.this_run);
+
+        let Ok(location) = self.world.entities.get_spawned(entity) else {
+            return Err(Error::new(ErrorKind::ECS, "Entity does not exist"));
+        };
+        let row = location.table_row;
+
+        if !F::filter_fetch(&self.state.filter_state, &mut filter, entity, row) {
+            return Err(Error::new(ErrorKind::ECS, "No matching entities"));
+        }
+
+        let item =
+            unsafe { D::fetch(&self.state.fetch_state, &mut fetch, entity, row) };
+        if let Some(item) = item {
+            return Ok(item);
+        }
+
+        return Err(Error::new(ErrorKind::ECS, "Entity doesn't contain component"));
     }
 }
 

@@ -1,8 +1,6 @@
-use std::{collections::HashMap, ops::{Index, IndexMut}};
+use std::{collections::{HashMap, HashSet}, fmt::{Debug, Display}, ops::{Index, IndexMut}};
 
 use crate::ecs::{components::id::{ComponentId, ComponentIdsArray}, entities::{EntityLocation, id::EntityId}};
-
-
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct ArchetypeId(u32);
@@ -21,21 +19,22 @@ impl ArchetypeId {
     }
 }
 
-
 pub struct Archetype {
     id: ArchetypeId,
     table_id: u32,
     entities: HashMap<EntityId, u32>,
-    component_ids : ComponentIdsArray
+    entities_vec: Vec<EntityId>,
+    components : Vec<ComponentId>
 }
 
 impl Archetype {
-    pub fn new(id : ArchetypeId, component_ids: ComponentIdsArray, table_id: u32) -> Self {
+    pub fn new(id : ArchetypeId, component_ids: Vec<ComponentId>, table_id: u32) -> Self {
         Self {
             id,
             table_id,
             entities: HashMap::new(),
-            component_ids
+            entities_vec: Vec::new(),
+            components: component_ids
         }
     }
 
@@ -43,12 +42,24 @@ impl Archetype {
         self.id
     }
 
-    pub fn component_ids(&self) -> &ComponentIdsArray {
-        &self.component_ids
+    pub fn archetype_components(&self) -> &Vec<ComponentId> {
+        &self.components
     }
 
-    pub fn contains(&self, id: ComponentId) -> bool {
-        self.component_ids.contains(id)
+    pub fn contains(&self, id: &ComponentId) -> bool {
+        self.components.contains(id)
+    }
+
+    pub fn contains_all(&self, ids: &Vec<ComponentId>) -> bool {
+        ids
+            .iter()
+            .all(|component_id| self.components.contains(component_id))
+    }
+
+    pub fn contains_any(&self, ids: &Vec<ComponentId>) -> bool {
+        ids
+            .iter()
+            .all(|component_id| self.components.contains(component_id))
     }
 
     pub fn table_id(&self) -> u32 {
@@ -61,18 +72,90 @@ impl Archetype {
 
     pub fn insert(&mut self, entity: EntityId, row : u32) -> EntityLocation {
         self.entities.insert(entity, row);
+        self.entities_vec.insert(row as usize, entity);
         EntityLocation { 
             archetype_id: self.id, 
             table_id: self.table_id, 
             table_row: row }
     }
+
+    #[inline]
+    pub fn swap_remove(&mut self, entity: EntityId, row: u32) -> (Option<EntityId>, u32) {
+        let is_last = row as usize == self.entities.len() - 1;
+        if is_last {
+            self.entities.remove(&entity).unwrap();
+            (None, row)
+        } else {
+            self.entities.remove(&entity).unwrap();
+            let last_entity_id = self
+                .entities
+                .iter()
+                .max_by_key(|(_, value)| **value );
+
+            if let Some((&entity_id, _)) = last_entity_id {
+                self.entities.insert(entity_id, row);
+                (Some(entity_id), row)
+            } else {
+                (None, row)
+            }
+            
+        }
+    }
 }
+
+impl Display for Archetype {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        let mut iter = self.components.iter();
+        if let Some(first) = iter.next() {
+            write!(f, "{}", first)?;
+            for item in iter {
+                write!(f, ",{}", item)?;
+            }
+        }
+        write!(f, "]:{{")?;
+        let mut iter = self.entities.iter();
+        if let Some(first) = iter.next() {
+            write!(f, "(e: {}, r: {})", first.0, first.1)?;
+            for item in iter {
+                write!(f, ",(e: {}, r: {})", item.0, item.1)?;
+            }
+        }
+        write!(f, "}}")
+    }
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct ArchetypeComponents {
+    components: Box<[ComponentId]>,
+}
+
+impl ArchetypeComponents {
+    fn contains(&self, component_id : &ComponentId) -> bool {
+        self.components.contains(component_id)
+    }
+}
+
+impl Display for ArchetypeComponents {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        let mut iter = self.components.iter();
+        if let Some(first) = iter.next() {
+            write!(f, "{}", first)?;
+        }
+        
+        for component_id in iter {
+            write!(f, ",{}", component_id)?;
+        }
+        write!(f, "]")
+    }
+}
+
 
 #[allow(dead_code)]
 pub struct Archetypes {
     pub archetypes: Vec<Archetype>,
-    by_components: HashMap<ComponentIdsArray, ArchetypeId>,
-    by_component: HashMap<ComponentId, Vec<ArchetypeId>>
+    by_components: HashMap<ArchetypeComponents, ArchetypeId>,
 }
 
 impl Archetypes {
@@ -80,7 +163,6 @@ impl Archetypes {
         Self {
             archetypes : Vec::new(),
             by_components : HashMap::new(),
-            by_component: HashMap::new()
         }
     }
 
@@ -107,7 +189,7 @@ impl Archetypes {
     pub(crate) fn insert_id(
         &mut self,
         table_id: u32,
-        table_components: &ComponentIdsArray
+        table_components: Vec<ComponentId>
     ) -> ArchetypeId {
         let archetypes = &mut self.archetypes;
 
@@ -117,16 +199,33 @@ impl Archetypes {
             table_components.clone(),
             table_id,
         ));
-        self.by_components.insert(table_components.clone(), id);
+
+        self.by_components.insert(
+            ArchetypeComponents {
+                components: table_components.into_boxed_slice() 
+            },
+            id
+        );
 
         id
     }
 
-    pub(crate) fn get_id(&self, table_components: &ComponentIdsArray) -> Option<ArchetypeId> {
-        match self.by_components.get(table_components) {
+    pub(crate) fn get_id(&self, components: Vec<ComponentId>) -> Option<ArchetypeId> {
+        let archetype_components = ArchetypeComponents {
+            components: components.into_boxed_slice()
+        };
+        
+        match self.by_components.get(&archetype_components) {
             Some(id) => Some(*id),
             None => None,
         }
+    }
+
+    pub(crate) fn contains_components(&self, components: Vec<ComponentId>) -> bool {
+        let archetype_components = ArchetypeComponents {
+            components: components.into_boxed_slice()
+        };
+        self.by_components.contains_key(&archetype_components)
     }
 }
 
@@ -143,5 +242,18 @@ impl IndexMut<ArchetypeId> for Archetypes {
     #[inline]
     fn index_mut(&mut self, index: ArchetypeId) -> &mut Self::Output {
         &mut self.archetypes[index.index()]
+    }
+}
+
+impl Display for Archetypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut iter = self.archetypes.iter();
+        if let Some(first) = iter.next() {
+            write!(f, "{}", first)?;
+            for item in iter {
+                write!(f, ",\n{}", item)?;
+            }
+        }
+        write!(f, "")
     }
 }

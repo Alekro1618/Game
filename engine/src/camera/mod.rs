@@ -2,10 +2,11 @@ use crate::{ecs::components::{Component, Mutable, StorageType}, math::{rect::Rec
 
 
 pub struct Camera {
-    _view : Rect,
-    _rotation : f32,
-    _direction : Vec2
-    
+    rotation: f32,
+    zoom: Vec2,
+    target: Vec2,
+    offset: Vec2,
+    render_target: Option<u32>,  //TODO  
 }
 
 impl Component for Camera {

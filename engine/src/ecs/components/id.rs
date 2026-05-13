@@ -1,9 +1,7 @@
-use std::{any::TypeId, collections::{HashMap, hash_map::Iter}, fmt::Display, hash::Hash};
+use std::{any::TypeId, collections::{HashMap, HashSet, hash_map::Iter}, fmt::{Debug, Display}, hash::{Hash, RandomState}};
 
 
-use crate::ecs::{components::info::TypeIdMap, hash::NoOpHash};
-
-/// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
+use crate::{ecs::{components::info::TypeIdMap, hash::NoOpHash}, error::error::Error};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ComponentId {
@@ -58,6 +56,13 @@ pub struct ComponentIdsArray {
 }
 
 impl ComponentIdsArray {
+    pub fn new() -> Self {
+        Self { 
+            component_ids: Vec::new(), 
+            type_map: HashMap::<TypeId, ComponentId, NoOpHash>::with_hasher(NoOpHash) 
+        }
+    }
+
     pub fn from(type_map : TypeIdMap<ComponentId>) -> Self {
         Self {
             component_ids: type_map
@@ -67,6 +72,10 @@ impl ComponentIdsArray {
                 .collect(),
             type_map: type_map
         }
+    }
+
+    pub fn ids(&self) -> &Vec<ComponentId> {
+        &self.component_ids
     }
 
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a TypeId, &'a ComponentId)>{ 
@@ -83,12 +92,6 @@ impl ComponentIdsArray {
 
     pub fn len(&self) -> usize {
         self.component_ids.len()
-    }
-}
-
-impl Hash for ComponentIdsArray {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.component_ids.hash(state);
     }
 }
 
@@ -119,5 +122,19 @@ impl<'a> IntoIterator for &'a ComponentIdsArray {
 
     fn into_iter(self) -> Self::IntoIter {
         self.type_map.iter()
+    }
+}
+
+impl Display for ComponentIdsArray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut iter = self.component_ids.iter();
+        write!(f, "{{")?;
+        if let Some(first) = iter.next() {
+            write!(f, "{}", first)?;
+            for item in iter {
+                write!(f, ",{}", item)?;
+            }
+        }
+        write!(f, "}}")
     }
 }

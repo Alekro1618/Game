@@ -1,24 +1,23 @@
-use std::{collections::HashMap, num::NonZero, pin::Pin};
+use std::{collections::HashMap, num::NonZero, pin::Pin, time::Instant};
 
-use macroquad::{color::WHITE, window::{clear_background, next_frame}};
+use macroquad::{color::WHITE, time::get_frame_time, window::{clear_background, next_frame}};
 
-use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin, sub_app::{SubApp, SubApps}}, ecs::schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}};
+use crate::{app::{main_schedule::ScheduleLabel, plugin::{GenericPlugin, Plugin}, sub_app::{SubApp, SubApps}}, ecs::{event::Event, message::Message, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem}};
 
 pub mod main_schedule;
 pub mod plugin;
 pub mod sub_app;
 
+pub const FIXED_UPDATE : f32 = 2e-2;
 
 type RunnerFn = Box<dyn FnMut(App) -> Pin<Box<dyn Future<Output = AppExit>>>>;
 
-fn _run_once(mut app: App) -> AppExit {
+fn tick(app : &mut App, fixed_update : bool) -> Result<(), AppExit> {
+    app.pre_update();
     app.update();
-
-    app.should_exit().unwrap_or(AppExit::Success)
-}
-
-fn tick(app : &mut App) -> Result<(), AppExit> {
-    app.update();
+    if fixed_update {
+        app.fixed_update();
+    }
 
     if let Some(exit) = app.should_exit() {
         return Err(exit);
@@ -28,13 +27,23 @@ fn tick(app : &mut App) -> Result<(), AppExit> {
 }
 
 async fn run_update(mut app: App) -> AppExit {
+    let mut timer : f32 = 0.0;
+    let mut fixed_update = true;
+
     app.start_up();
     loop {
-        clear_background(WHITE);
-        if let Err(exit) =  tick(&mut app) {
+        timer += get_frame_time();
+        if timer >= FIXED_UPDATE {
+            fixed_update = true;
+            timer -= FIXED_UPDATE;
+        }
+       
+        if let Err(exit) =  tick(&mut app, fixed_update) {
             app.end();
             return exit;
         }
+
+        fixed_update = false;
         next_frame().await;
     }
 }
@@ -80,8 +89,20 @@ impl App {
         self.sub_apps.start_up();
     } 
 
+    pub fn pre_update(&mut self) {
+        self.sub_apps.pre_update();
+    }
+
+    pub fn post_update(&mut self) {
+        self.sub_apps.post_update();
+    }
+
     pub fn update(&mut self) {
         self.sub_apps.update();
+    }
+
+    pub fn fixed_update(&mut self) {
+        self.sub_apps.fixed_update();
     }
 
     pub fn end(&mut self) {
@@ -122,12 +143,22 @@ impl App {
         self
     }
 
+    pub fn add_generic_plugin<T>(&mut self, plugin : impl GenericPlugin<T>) -> &mut Self {
+        plugin.build(self);
+        self
+    }
+
     pub fn add_systems<M>(
         &mut self,
         schedule: ScheduleLabel,
         systems: impl IntoSchedule<ScheduleSystem, M>,
     ) -> &mut Self {
         self.main_mut().add_systems(schedule, systems);
+        self
+    }
+
+    pub fn add_observer<E: Event, M>(&mut self, observer: impl IntoObserverSystem<E, M>) -> &mut Self {
+        self.main_mut().add_observer(observer);
         self
     }
 

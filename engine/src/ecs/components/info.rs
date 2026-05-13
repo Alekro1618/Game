@@ -83,7 +83,7 @@ impl ComponentDescriptor {
 
     pub fn new<T: Component>() -> Self {
         Self {
-            name: "", //TOOD: GET NAME FROM TYPE
+            name: std::any::type_name::<T>(), 
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),

@@ -12,3 +12,6 @@ pub mod ui;
 pub mod window;
 pub mod helper;
 pub mod app;
+
+#[cfg(test)]
+mod test;

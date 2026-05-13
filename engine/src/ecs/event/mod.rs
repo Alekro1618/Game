@@ -1,4 +1,14 @@
-use crate::ecs::components::id::ComponentId;
+use std::marker::PhantomData;
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct EventKey(pub(crate) ComponentId);
+use crate::ecs::{components::{Component, Mutable, StorageType, id::ComponentId}, entities::id::EntityId, observer::{self, centralized_storage::CachedObserver}, worlds::World};
+
+pub struct EventWrapperComponent<E: Event>(PhantomData<E>);
+
+impl<E: Event> Component for EventWrapperComponent<E> {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    type Mutability = Mutable;
+}
+
+pub trait Event: Send + Sync + Sized + 'static {
+}

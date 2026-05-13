@@ -1,6 +1,6 @@
-use macroquad::shapes::{DrawRectangleParams, draw_rectangle_ex};
+use macroquad::{color::WHITE, shapes::{DrawRectangleParams, draw_rectangle_ex}, time::draw_fps, window::clear_background};
 
-use crate::{app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{systems::query::Query, worlds::World}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
+use crate::{app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{systems::{function_system::F1, query::Query}, worlds::World}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
 
 pub struct RenderPlugin;
 
@@ -12,7 +12,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app:  &mut App) {
         
 
-        app.add_systems::<Query<(&Transform, &Sprite)>>(ScheduleLabel::Update, render);
+        app.add_systems::<F1<Query<(&Transform, &Sprite)>>>(ScheduleLabel::Update, render);
 
         //let mut render_app = SubApp::new();
         //app.set_extract(extract);
@@ -22,9 +22,10 @@ impl Plugin for RenderPlugin {
 }
 
 fn render(drawable : Query<(&Transform, &Sprite)>) {
+    clear_background(WHITE);
     for (transform, sprite) in drawable {
         if let Some(_texture) = &sprite.texture {
-            todo!("");
+            //todo!("");
         } else {
             draw_rectangle_ex(
                 transform.position.x,
@@ -37,9 +38,9 @@ fn render(drawable : Query<(&Transform, &Sprite)>) {
                     color: (&sprite.color).into(),
                 }
             );
-        }
-        
+        } 
     }
+    draw_fps();
 }
 
 

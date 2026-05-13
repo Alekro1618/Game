@@ -1,16 +1,13 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use raylib::math::Vector2;
-use crate::engine::utils::grid::Grid;
 
-fn metric(start : (usize, usize), end : (usize, usize)) -> usize {
-    start.0.abs_diff(end.0).max(start.1.abs_diff(end.1))
-}
+use crate::utils::grid::{Grid, GridName, Point};
 
-
-pub fn bfs<const W : usize, const H : usize>(grid : &Grid<W, H>, start : (usize, usize), end : (usize, usize)) -> Vec<(usize, usize)> {
+pub fn bfs(grid : &Grid, start : impl Into<Point>, end : impl Into<Point>) -> Vec<Point> {
+    let start = start.into();
+    let end = end.into();
     let mut queue = VecDeque::new();
     let mut visited = HashSet::new();
-    let mut parent: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+    let mut parent: HashMap<Point, Point> = HashMap::new();
 
     queue.push_back(start);
     visited.insert(start);
@@ -23,14 +20,18 @@ pub fn bfs<const W : usize, const H : usize>(grid : &Grid<W, H>, start : (usize,
         }
 
         for (dx, dy) in dirs.iter() {
-            let next = (current.0 as isize + dx, current.1 as isize + dy);
-
-            if !grid.is_wall(&next) {
-                let next_in_grid = (next.0 as usize, next.1 as usize);
-                if !visited.contains(&next_in_grid) {
-                    visited.insert(next_in_grid);
-                    parent.insert(next_in_grid, current);
-                    queue.push_back(next_in_grid);
+            let resut : Result<Point, _> = (current.x() as isize + dx, current.y() as isize + dy).try_into();
+            if resut.is_err() {
+                continue;
+            }
+            
+            let next = resut.unwrap();
+            
+            if !grid.get_point(GridName::Walls, next).value() {
+                if !visited.contains(&next) {
+                    visited.insert(next);
+                    parent.insert(next, current);
+                    queue.push_back(next);
                 }
             }
         }   
@@ -48,11 +49,10 @@ pub fn bfs<const W : usize, const H : usize>(grid : &Grid<W, H>, start : (usize,
         current = *parent.get(&current).unwrap();
     }
     path.push(start);
-    path.reverse();
 
     path
 }
 
-pub fn path<const W : usize, const H : usize>(grid : &Grid<W, H>, start : (usize, usize), end : (usize, usize)) -> Vec<(usize, usize)> {
+pub fn find_path(grid : &Grid, start : impl Into<Point>, end : impl Into<Point>) -> Vec<Point> {
     bfs(grid, start, end)
 }

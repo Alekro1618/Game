@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 macroquad = "0.4.14"
 engine_macros = {path = "engine_macros"}
+ron = "0.12.1"
+serde = { version = "1.0.228", features = ["derive"]}

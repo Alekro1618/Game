@@ -1,10 +1,11 @@
-use std::{any::TypeId, sync::atomic::AtomicU32};
+use std::{any::TypeId, collections::HashSet, sync::atomic::AtomicU32};
 
 use macroquad::prelude::warn;
 
-use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::Archetypes, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::ComponentId, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, lifecycle::RemovedComponentMessages, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::commands::command::CommandQueue, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
+use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::{ArchetypeId, Archetypes}, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::{ComponentId, ComponentIdsArray}, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, event::{Event, EventWrapperComponent}, lifecycle::RemovedComponentMessages, observer::{centralized_storage::Observers, distributed_storage::{IntoObserver, Observer}}, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::{commands::command::CommandQueue, observer_system::{IntoObserverSystem, ObserverSystem}}, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
 mod id;
 pub mod assert;
+pub mod log;
 
 pub struct World {
     id: WorldId,
@@ -16,6 +17,7 @@ pub struct World {
     pub archetypes: Archetypes,
     pub storages: Storages,
     pub bundles: Bundles,
+    pub observes: Observers,
     pub removed_components: RemovedComponentMessages,
     pub change_tick: AtomicU32,
     pub last_change_tick: Tick,
@@ -34,6 +36,7 @@ impl Default for World {
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
+            observes: Observers::default(),
             removed_components: Default::default(),
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
@@ -95,6 +98,16 @@ impl World {
     pub unsafe fn entities_mut(&mut self) -> &mut Entities {
         &mut self.entities
     }
+
+    #[inline]
+    pub fn observers(&self) -> &Observers {
+        &self.observes
+    } 
+
+    #[inline]
+    pub fn last_trigger_id(&self) -> u32 {
+        self.last_trigger_id
+    } 
 
     #[inline]
     pub fn entity_count(&self) -> u32 {
@@ -176,6 +189,12 @@ impl World {
     //     self.components.get_hooks_mut(id)
     // }
 
+    pub fn add_observer<E : Event, M>(&mut self, observer: impl IntoObserverSystem<E, M>) -> &mut Self {
+        let system = IntoObserverSystem::into_system(observer);
+        self.observes.register::<E>(system);
+        self
+    }
+
     pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -194,20 +213,185 @@ impl World {
             return None;
         }
 
-        let comp_id = self.components.get_id(TypeId::of::<T>())?;
+        let comp_id = self.component_id::<T>()?;
         let archetype_id = self.entities.get_spawned(entity).ok()?.archetype_id;
         let archetype = self.archetypes.get(archetype_id)?;
 
         let &row = archetype.row(entity)?;
         let table = &self.storages.tables[archetype.table_id() as usize];
-        table.get::<T>(comp_id, row as usize)
+
+        //Safety: ComponentId is correct and since we take row from archetype we are in bounds.
+        unsafe {
+            table.get(comp_id, row as usize)
+        }
     }
+
+    pub fn get_component_mut<T: Component>(&mut self, entity: EntityId) -> Option<&mut T> {
+        if !self.entities.is_alive(entity) {
+            return None;
+        }
+
+        let comp_id = self.component_id::<T>()?;
+        let archetype_id = self.entities.get_spawned(entity).ok()?.archetype_id;
+        let archetype = self.archetypes.get(archetype_id)?;
+
+        let &row = archetype.row(entity)?;
+        let table = &mut self.storages.tables[archetype.table_id() as usize];
+
+        //Safety: ComponentId is correct and since we take row from archetype we are in bounds.
+        unsafe {
+            table.get_mut(comp_id, row as usize)
+        }
+    }
+
 
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityId {
         let entity = self.entity_allocator.allocate();
         self.entities.alloc(entity.id(), entity.gnr());
 
         self.spawn_at_unchecked(entity, bundle)
+    }
+
+    pub fn despawn(&mut self, entity: EntityId) {
+        todo!("needs implementation")
+    }
+
+    pub fn insert<B: Bundle>(
+        &mut self,
+        entity_id: EntityId,
+        bundle : B
+    )  {
+        let change_tick = self.change_tick();
+        let component_ids : ComponentIdsArray   
+            = B::component_ids(&mut self.components_registrator())
+            .collect();
+        let old_component_ids = component_ids.clone();
+
+        let old_location = self.get_entity(entity_id).unwrap();
+        let old_row: u32 = old_location.table_row;
+        let old_archetype = self.archetypes.get(old_location.archetype_id).unwrap();
+        if old_archetype.contains_all(component_ids.ids()) {
+            let table = &mut self.storages.tables[old_location.table_id as usize];
+            bundle.replace_in_table(&old_component_ids, table, old_row as usize, change_tick);
+            return;
+        };
+
+        let mut new_component_ids = old_archetype.archetype_components().clone();
+        new_component_ids.append(&mut old_component_ids.ids().clone());
+        new_component_ids.sort();
+
+        let new_archetype_id = self.get_or_create_archetype(new_component_ids);
+
+        let new_archetype = self.archetypes.get_mut(new_archetype_id).unwrap();
+
+
+        let [old_table, new_table] 
+            = self.storages.get_disjoint_table_mut(
+                [
+                        old_location.table_id as usize, 
+                        new_archetype.table_id() as usize
+                    ]
+                )
+                .unwrap();
+        let _ = old_table.remove_entity(old_row as usize);
+
+
+        let row = new_table.add_entity(entity_id);
+        let new_location = new_archetype.insert(entity_id, row as u32);
+
+        unsafe {
+            old_table.move_to(old_row as usize,  new_table , change_tick);
+        }
+
+        bundle.insert_into_table(&old_component_ids, new_table, change_tick);
+
+        let (last_entity, last_row) = self
+            .archetypes
+            .get_mut(old_location.archetype_id)
+            .unwrap()
+            .swap_remove(entity_id, old_location.table_row);
+        
+        //set entity replaced by moved location
+        if let Some(entity) = last_entity {
+            self.entities.set_location(
+                entity, 
+                EntityLocation { 
+                    archetype_id: old_location.archetype_id, 
+                    table_id: old_location.table_id, 
+                    table_row: last_row
+                }
+            );
+        }
+        
+        //set moved entity location
+        self.entities.set_location(entity_id, new_location);
+        self.bundles.register();
+    }
+
+    pub fn remove<B: Bundle>(&mut self, entity_id: EntityId){
+        let change_tick = self.change_tick();
+        let to_remove_component_ids : ComponentIdsArray   
+            = B::component_ids(&mut self.components_registrator())
+            .collect();
+
+        let old_location = self.get_entity(entity_id).unwrap();
+        let old_archetype = self.archetypes.get(old_location.archetype_id).unwrap();
+        if !old_archetype.contains_any(to_remove_component_ids.ids()) {
+            return;
+        };
+
+        let mut new_component_ids = Vec::new();
+        
+        for &component_id in old_archetype.archetype_components() {
+            if !to_remove_component_ids.contains(component_id) {
+                new_component_ids.push(component_id);
+            }
+        }
+
+        new_component_ids.sort(); //REDO:
+
+        let new_archetype_id = self.get_or_create_archetype(new_component_ids);
+        let new_archetype = self.archetypes.get_mut(new_archetype_id).unwrap();
+
+        let [old_table, new_table] 
+            = self.storages.get_disjoint_table_mut(
+                [
+                        old_location.table_id as usize, 
+                        new_archetype.table_id() as usize
+                    ]
+                )
+                .unwrap();
+        let _ = old_table.remove_entity(old_location.table_row as usize);
+
+        let row = new_table.add_entity(entity_id);
+        let new_location = new_archetype.insert(entity_id, row as u32);
+
+        unsafe {
+            old_table.move_to(old_location.table_row as usize,  new_table , change_tick);
+        }
+
+        B::remove_from_table(&to_remove_component_ids, old_table, old_location.table_row as usize, change_tick);
+
+        let (last_entity, last_row) = self
+            .archetypes
+            .get_mut(old_location.archetype_id)
+            .unwrap()
+            .swap_remove(entity_id, old_location.table_row);
+        
+        //set entity replaced by moved location
+        if let Some(entity) = last_entity {
+            self.entities.set_location(
+                entity, 
+                EntityLocation { 
+                    archetype_id: old_location.archetype_id, 
+                    table_id: old_location.table_id, 
+                    table_row: last_row
+                }
+            );
+        }
+        
+        self.entities.set_location(entity_id, new_location);
+        self.bundles.register();
     }
 
     
@@ -217,23 +401,14 @@ impl World {
         bundle: B,
     ) -> EntityId {
         let change_tick = self.change_tick();
-        let component_ids 
+        let component_ids: ComponentIdsArray 
             = B::component_ids(&mut self.components_registrator())
             .collect();
-        
 
-        let archetype_id = self.archetypes.get_id(&component_ids).unwrap_or({
-            let table_id = self.storages().len();
+        let mut current_component_ids = component_ids.ids().clone();
+        current_component_ids.sort(); //REDO
 
-            let mut table_builder = TableBuilder::with_capacity(0, component_ids.len());
-            for component_id in component_ids.iter() {
-                table_builder.add_column(self.components().get_info(*component_id.1).unwrap());
-            }
-
-            let table = table_builder.build();
-            self.storages.insert_table(table);
-            self.archetypes.insert_id(table_id as u32, &component_ids)
-        });
+        let archetype_id = self.get_or_create_archetype(current_component_ids);
 
         let archetype = self.archetypes.get_mut(archetype_id).unwrap();
         let table = &mut self.storages.tables[archetype.table_id() as usize];
@@ -250,6 +425,24 @@ impl World {
         self.bundles.register();
 
         entity_id
+    }
+
+    pub fn get_or_create_archetype(&mut self, component_ids : Vec<ComponentId>) -> ArchetypeId {
+        let table_components = component_ids.clone();
+        if let Some(archetype_id) = self.archetypes.get_id(component_ids) {
+            archetype_id
+        } else {
+            let table_id = self.storages().len();
+
+            let mut table_builder = TableBuilder::with_capacity(0, table_components.len());
+            for component_id in table_components.iter() {
+                table_builder.add_column(self.components().get_info(*component_id).unwrap());
+            }
+
+            let table = table_builder.build();
+            self.storages.insert_table(table);
+            self.archetypes.insert_id(table_id as u32, table_components)
+        }
     }
 
     #[inline]
@@ -339,6 +532,42 @@ impl World {
 
         Ok(value)
     }
+
+    pub(crate) fn increment_trigger_id(&mut self) {
+        self.last_trigger_id += 1;
+    }
+
+    pub fn trigger_ref<'a, E: Event>(
+        &mut self,
+        event: &mut E,
+    ) {
+        unsafe {
+            self.trigger_raw( event );
+        }
+    }
+
+    #[inline]
+    pub unsafe fn trigger_raw<'a, E: Event>(
+        &mut self,
+        event: &mut E,
+    ) {
+        let observers = std::mem::take(&mut self.observes);
+        if let Some(observer) = observers.get::<E>() {
+            (observer.observer_function())(self, event as *mut E as *mut u8);
+        };
+        
+
+        self.observes = observers;
+    }
+
+
+
+    #[inline]
+    #[track_caller]
+    pub fn flush(&mut self) {
+        let mut command_queue = std::mem::take(&mut self.command_queue);
+        command_queue.apply(self);
+    }
 }
 
 
@@ -353,5 +582,257 @@ impl<T: Default> FromWorld for T {
     #[track_caller]
     fn from_world(_world: &mut World) -> Self {
         T::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fmt::Display, vec};
+
+use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::EntityId, systems::commands::{Commands, command::CommandQueue}, worlds::{World, log::print_component_of}};
+
+    #[derive(PartialEq, Eq, Debug)]
+    pub struct A;
+    impl Component for A {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+    
+        type Mutability = Mutable;
+    }
+
+    #[derive(PartialEq, Eq, Debug)]
+    pub struct B;
+    impl Component for B {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+    
+        type Mutability = Mutable;
+    }
+
+    #[derive(PartialEq, Eq, Debug)]
+    pub struct C;
+    impl Component for C {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+    
+        type Mutability = Mutable;
+    }
+
+    #[derive(PartialEq, Eq, Debug)]
+    pub struct T(u32);
+    impl Component for T {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+    
+        type Mutability = Mutable;
+    }
+
+    #[derive(PartialEq, Eq, Debug)]
+    pub struct D(Vec<u32>);
+    impl Component for D {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+    
+        type Mutability = Mutable;
+    }
+
+    impl Display for D {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "[")?;
+            let mut iter = self.0.iter();
+            if let Some(first) = iter.next() {
+                write!(f, "{}", first)?;
+            }
+
+            for element in iter {
+                write!(f, ", {}", element)?;
+            }
+
+            write!(f, "]")
+        }
+    }
+
+    #[test]
+    fn test_spawn_entity_world() {
+        let mut world = World::new();
+    
+        let entity = world.spawn((A, B, C, T(1)));
+
+        let a = world.get_component::<A>(entity);
+        let b = world.get_component::<B>(entity);
+        let c = world.get_component::<C>(entity);
+        let t = world.get_component::<T>(entity);
+
+        assert_eq!(a, Some(&A));
+        assert_eq!(b, Some(&B));
+        assert_eq!(c, Some(&C));
+        assert_eq!(t, Some(&T(1)));
+    }
+
+    #[test]
+    fn test_spawn_entity_and_insert_world() {
+        let mut world = World::new();
+    
+        let entity = world.spawn((A, T(1)));
+
+        //Replace with new
+        world.insert(entity, (T(4),));
+
+        //Insert new
+        world.insert(entity, (C,));
+
+        let c = world.get_component::<C>(entity);
+        let t = world.get_component::<T>(entity);
+
+        assert_eq!(c, Some(&C));
+        assert_eq!(t, Some(&T(4)));
+    }
+
+     #[test]
+    fn test_spawn_entity_and_remove_world() {
+        let mut world = World::new();
+    
+        let entity = world.spawn((A, T(1)));
+
+        //Remove non-existing
+        world.remove::<(C, )>(entity);
+
+        //Remove existing
+        world.remove::<(A, )>(entity);
+
+        let a = world.get_component::<A>(entity);
+        let t = world.get_component::<T>(entity);
+
+        assert_eq!(a, None);
+        assert_eq!(t, Some(&T(1)));
+    }
+
+    #[test]
+    fn test_spawn_and_edit_entity_vec_world() {
+        let mut world = World::new();
+    
+        let entity = world.spawn((A, T(1)));
+        let entity2 = world.spawn((A, D(vec![3, 4, 5, 7, 8, 9])));
+
+        world.insert(entity, (D(vec![3, 4, 5, 7, 8, 9]),));
+
+        let d = world.get_component::<D>(entity);
+
+        assert_eq!(d, Some(&D(vec![3, 4, 5, 7, 8, 9])));
+
+        if let Some(d) = world.get_component_mut::<D>(entity) {
+            d.0.push(10);
+        }
+        
+        if let Some(d) = world.get_component_mut::<D>(entity2) {
+            d.0.push(10);
+        }
+    
+        let d = world.get_component::<D>(entity);
+        let d1 = world.get_component::<D>(entity2);
+
+        assert_eq!(d, Some(&D(vec![3, 4, 5, 7, 8, 9, 10])));
+        assert_eq!(d1, Some(&D(vec![3, 4, 5, 7, 8, 9, 10])))
+    }   
+
+    #[test]
+    fn test_archetype_movement_world() {
+        let mut world = World::new();
+        let entity = world.spawn((T(1), A));
+
+        let entity2 = world.spawn((T(1), A));
+
+        let mut flipper1 = false;
+        let mut flipper2 = false;
+
+        for i in 1..10 {
+            if let Some(c) = world.get_component::<C>(entity) {
+                world.insert(entity, (A, ));
+                world.remove::<(C, )>(entity);
+                world.remove::<(T, )>(entity);
+            }
+
+            if let Some(c) = world.get_component::<C>(entity2) {
+                world.insert(entity2, (A, ));
+                world.remove::<(C, )>(entity2);
+                world.remove::<(T, )>(entity2);
+            }
+
+            if let Some(b) = world.get_component::<B>(entity) {
+                world.insert(entity, (C, ));
+                world.remove::<(B, )>(entity);
+            }
+
+            if let Some(b) = world.get_component::<B>(entity2) {
+                world.insert(entity2, (C, ));
+                world.remove::<(B, )>(entity2);
+            }
+
+            if let Some(_) = world.get_component::<A>(entity) {
+                if flipper1 {
+                    world.insert(entity, (B, ));
+                    world.insert(entity, (T(1), ));
+                } else {
+                    world.insert(entity, (C, ));
+                }
+                flipper1 = !flipper1;
+                world.remove::<(A, )>(entity);
+            }
+
+            if let Some(_) = world.get_component::<A>(entity2) {
+                if flipper2 {
+                    world.insert(entity2, (B, ));
+                    world.insert(entity2, (T(1), ));
+                } else {
+                    world.insert(entity2, (C, ));
+                }
+                flipper2 = !flipper2;
+                world.remove::<(A, )>(entity2);
+            }
+
+            if let Some(t) = world.get_component_mut::<T>(entity) {
+                t.0 += 1;
+            }
+
+            if let Some(t) = world.get_component_mut::<T>(entity2) {
+                t.0 += 1;
+            }
+        }
+        
+        assert_eq!(world.archetypes.len(), 10);
+        assert_eq!(world.get_component::<T>(entity), Some(&T(3)));
+        assert_eq!(world.get_component::<T>(entity2), Some(&T(3)));
+    }   
+
+    #[test]
+    fn test_query() {
+        let mut world = World::new();
+        let e1 = world.spawn((A, D(vec![1, 2, 3, 4, 5])));
+        let e2 = world.spawn((A, D(vec![5, 4, 3, 2, 1])));
+        let e3 = world.spawn((A, D(vec![5, 4, 3, 2, 1, 5, 4, 3, 2, 1])));
+
+        for i in 1..5 {
+            let mut query = world.query::<(EntityId, &A, &mut D)>();
+            let mut command_queue = CommandQueue::default();
+            let mut command = Commands::from(&mut command_queue);
+            command.log("init");
+            command.log_component::<D>(e3);
+            for (entity, a, mut d) in query.iter(&mut world) {
+                command.remove::<(A,)>(entity);
+            }
+            command.log("before");
+            command.log_component::<D>(e3);
+            let mut query = world.query::<(EntityId, &mut D)>();
+
+            for (entity, mut d) in query.iter(&mut world) {
+                assert!(d.0.len() > 0);
+                d.0.pop();
+                command.add(entity, (A, ));
+            }
+            
+            command.log("after");
+            command.log_component::<D>(e3);
+
+            command_queue.apply(&mut world);
+        }
+
+        assert_eq!(world.get_component::<D>(e1), Some(&D(vec![1])));
+        assert_eq!(world.get_component::<D>(e2), Some(&D(vec![5])));
+        assert_eq!(world.get_component::<D>(e3), Some(&D(vec![5, 4, 3, 2, 1, 5])));
     }
 }

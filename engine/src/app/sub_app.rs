@@ -1,6 +1,6 @@
 use std::{collections::{HashMap}};
 
-use crate::{app::{App, main_schedule::ScheduleLabel}, ecs::{schedule::{config::{IntoSchedule}, schedule::Schedules, schedule_system::ScheduleSystem}, worlds::World}};
+use crate::{app::{App, main_schedule::ScheduleLabel}, ecs::{event::Event, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::World}};
 
 
 
@@ -57,8 +57,20 @@ impl SubApp {
         self.world.run_schedule(ScheduleLabel::Startup);
     }
 
+    pub fn pre_update(&mut self) {
+        self.world.run_schedule(ScheduleLabel::PreUpdate);
+    }
+
     pub fn update(&mut self) {
         self.world.run_schedule(ScheduleLabel::Update);
+    }
+
+    pub fn post_update(&mut self) {
+        self.world.run_schedule(ScheduleLabel::PostUpdate);
+    }
+
+    pub fn fixed_update(&mut self) {
+        self.world.run_schedule(ScheduleLabel::FixedUpdate);
     }
 
     pub fn end(&mut self) {
@@ -94,6 +106,11 @@ impl SubApp {
         self
     }
 
+    pub fn add_observer<E: Event, M>(&mut self, observer: impl IntoObserverSystem<E, M>) -> &mut Self {
+        self.world.add_observer(observer);
+        self
+    }
+
     // pub fn add_message<M: Message>(&mut self) -> &mut Self {
     //     MessageRegistry::register_message::<T>(self.world_mut());
 
@@ -117,6 +134,15 @@ impl SubApps {
         }
     }
 
+    pub fn pre_update(&mut self) {
+        self.main.pre_update();
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            sub_app.extract(&mut self.main.world);
+            sub_app.pre_update();
+            sub_app.extract(&mut self.main.world);
+        }
+    }
+
     pub fn update(&mut self) {
         self.main.update();
         for (_label, sub_app) in self.sub_apps.iter_mut() {
@@ -125,6 +151,27 @@ impl SubApps {
             sub_app.extract(&mut self.main.world);
         }
     }
+
+    pub fn post_update(&mut self) {
+        self.main.post_update();
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            sub_app.extract(&mut self.main.world);
+            sub_app.post_update();
+            sub_app.extract(&mut self.main.world);
+        }
+    }
+
+
+     pub fn fixed_update(&mut self) {
+        self.main.fixed_update();
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            sub_app.extract(&mut self.main.world);
+            sub_app.fixed_update();
+            sub_app.extract(&mut self.main.world);
+        }
+    }
+
+
 
     pub fn end(&mut self) {
         self.main.end();

@@ -5,6 +5,7 @@ pub mod system;
 pub mod node;
 pub mod function_system;
 pub mod commands;
+pub mod observer_system;
 
 pub trait IntoSystem<In, Out, Marker>: Sized {
     type System: System<In = In, Out = Out>;

@@ -39,4 +39,17 @@ impl Sprite {
             ..Default::default()
         }
     }
+
+    pub fn size(&self) -> Vec2 {
+        if let Some(txt) = &self.texture {
+            let d = txt.size();
+            return Vec2::new(d.x, d.y);
+        }
+
+        if let Some(custom) = &self.custom_size {
+            return *custom;
+        } else {
+            panic!("Sprite doesn't have size");
+        }
+    }
 }

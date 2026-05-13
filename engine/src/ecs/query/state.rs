@@ -4,21 +4,14 @@ use crate::ecs::{archetype::ArchetypeId, query::{fetch::QueryData, filter::Query
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
-    pub(crate) matched_archetypes: Vec<ArchetypeId>
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn new_unchecked(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
-        let matched = world
-            .archetypes
-            .iter()
-            .filter(|arch| D::matches_component_set(&fetch_state, &|id| arch.contains(id)))
-            .map(|arch| arch.id())
-            .collect();
 
-        Self{ fetch_state, filter_state, matched_archetypes: matched }
+        Self{ fetch_state, filter_state }
     }
 
     pub fn new(world: &mut World) -> Self {

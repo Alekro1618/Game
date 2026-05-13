@@ -16,6 +16,7 @@ pub enum ErrorKind {
     IO,
     System,
     Validation,
+    UI,
     ECS,
 }
 

@@ -9,5 +9,9 @@ pub trait Bundle: Send + Sync + 'static {
     ) -> impl Iterator<Item = (TypeId, ComponentId)> + use<Self>;
 
     fn insert_into_table(self, components : &ComponentIdsArray, table: &mut Table, tick : Tick);
+
+    fn replace_in_table(self, components : &ComponentIdsArray, table: &mut Table, row : usize, tick : Tick);
+
+    fn remove_from_table(components : &ComponentIdsArray, table: &mut Table, row : usize, tick : Tick);
 }
 

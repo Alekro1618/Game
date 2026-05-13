@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ecs::{components::{Component, id::ComponentId}, entities::{id::EntityId}, event::EventKey, worlds::World};
+use crate::ecs::{components::{Component, id::ComponentId}, entities::{id::EntityId}, worlds::World};
 
 
 
@@ -121,11 +121,11 @@ impl ComponentHooks {
     }
 }
 
-pub const ADD: EventKey = EventKey(ComponentId::new(0));
-pub const INSERT: EventKey = EventKey(ComponentId::new(1));
-pub const REPLACE: EventKey = EventKey(ComponentId::new(2));
-pub const REMOVE: EventKey = EventKey(ComponentId::new(3));
-pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
+// pub const ADD: EventKey = EventKey(ComponentId::new(0));
+// pub const INSERT: EventKey = EventKey(ComponentId::new(1));
+// pub const REPLACE: EventKey = EventKey(ComponentId::new(2));
+// pub const REMOVE: EventKey = EventKey(ComponentId::new(3));
+// pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
 
 #[derive(Debug, Clone)]
 pub struct Add {

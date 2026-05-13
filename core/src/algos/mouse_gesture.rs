@@ -1,12 +1,12 @@
 use std::f32;
+use engine::math::vec::Vec2;
 
-use raylib::math::Vector2;
 
-pub fn mouse_spiral(path : &Vec<Vector2>) -> f32 {
+pub fn mouse_spiral(path : &Vec<Vec2>) -> f32 {
     todo!()
 }
 
-pub fn mouse_shaking(path : &Vec<Vector2>) -> f32 {
+pub fn mouse_shaking(path : &Vec<Vec2>) -> f32 {
     if path.len() < 5 {
         return 0.0;
     }
