@@ -10,7 +10,7 @@ pub mod mouse;
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
-    fn build(&self, app:  &mut App) {
+    fn build(self, app:  &mut App) {
         app.add_systems::<F1<&mut ButtonInput<KeyCode>>>(ScheduleLabel::PreUpdate, keyboard_input_system);
         app.add_systems::<F1<&mut ButtonInput<MouseButton>>>(ScheduleLabel::PreUpdate, mouse_button_input_system);
         app.add_systems::<F1<&mut MousePos>>(ScheduleLabel::PreUpdate, mouse_position_system);

@@ -49,7 +49,8 @@ pub fn bfs(grid : &Grid, start : impl Into<Point>, end : impl Into<Point>) -> Ve
         current = *parent.get(&current).unwrap();
     }
     path.push(start);
-
+    path.reverse();
+    
     path
 }
 

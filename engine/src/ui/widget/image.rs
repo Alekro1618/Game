@@ -1,9 +1,10 @@
-use crate::{ecs::components::{Component, Mutable, StorageType}, math::rect::Rect, render::color::Color};
+
+use crate::{asset::handle::Handle, ecs::components::{Component, Mutable, StorageType}, image::{BLANK_IMAGE_HANDLE, Image, TRANSPARENT_IMAGE_HANDLE}, math::rect::Rect, render::color::Color};
 
 
-pub struct Image {
+pub struct ImageNode {
     pub color: Color,
-    pub image:  macroquad::texture::Image,
+    pub image:  Handle<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
     pub rect: Option<Rect>,
@@ -11,18 +12,18 @@ pub struct Image {
 }
 
 
-impl Component for Image {
+impl Component for ImageNode {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     type Mutability = Mutable;
 }
 
 
-impl Default for Image {
+impl Default for ImageNode {
     fn default() -> Self {
-        Image {
+        Self {
             color: Color::WHITE,
-            image: macroquad::texture::Image::empty(),
+            image: TRANSPARENT_IMAGE_HANDLE.to_owned(),
             flip_x: false,
             flip_y: false,
             rect: None,
@@ -31,9 +32,9 @@ impl Default for Image {
     }
 }
 
-impl Image {
+impl ImageNode {
     /// Create a new [`ImageNode`] with the given texture.
-    pub fn new(texture: macroquad::texture::Image) -> Self {
+    pub fn new(texture: Handle<Image>) -> Self {
         Self {
             image: texture,
             color: Color::WHITE,
@@ -46,7 +47,7 @@ impl Image {
     /// This is primarily useful for debugging / mocking the extents of your image.
     pub fn solid_color(color: Color) -> Self {
         Self {
-            image: macroquad::texture::Image::empty(),
+            image: BLANK_IMAGE_HANDLE.to_owned(),
             color,
             flip_x: false,
             flip_y: false,

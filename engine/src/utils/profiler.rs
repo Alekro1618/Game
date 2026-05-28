@@ -6,7 +6,7 @@ use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::systems::{
 pub struct ProfilerPlugin;
 
 impl Plugin for ProfilerPlugin {
-    fn build(&self, app: &mut crate::app::App) {
+    fn build(self, app: &mut crate::app::App) {
         app.add_systems::<F1<Commands>>(ScheduleLabel::FixedUpdate, debug);
     }
 }

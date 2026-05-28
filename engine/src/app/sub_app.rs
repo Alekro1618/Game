@@ -1,6 +1,6 @@
 use std::{collections::{HashMap}};
 
-use crate::{app::{App, main_schedule::ScheduleLabel}, ecs::{event::Event, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::World}};
+use crate::{app::{App, main_schedule::ScheduleLabel}, asset::asset::{Asset, Assets}, ecs::{event::Event, message::Message, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::World}, window::Window};
 
 
 
@@ -53,8 +53,16 @@ impl SubApp {
         }
     }
 
+    pub fn pre_start_up(&mut self) {
+        self.world.run_schedule(ScheduleLabel::PreStartup);
+    }
+
     pub fn start_up(&mut self) {
         self.world.run_schedule(ScheduleLabel::Startup);
+    }
+
+    pub fn post_start_up(&mut self) {
+        self.world.run_schedule(ScheduleLabel::PostStartup);
     }
 
     pub fn pre_update(&mut self) {
@@ -95,6 +103,16 @@ impl SubApp {
         self.extract.take()
     }
 
+    pub fn add_message<M : Message>(&mut self) -> &mut Self {
+        self.world.add_message::<M>();
+        self
+    }
+
+    pub fn init_asset<A : Asset>(&mut self) -> &mut Self {
+        self.world.init_resource::<Assets<A>>();
+        self
+    }
+
     pub fn add_systems<M>(
         &mut self,
         schedule: ScheduleLabel,
@@ -103,6 +121,15 @@ impl SubApp {
         let mut schedules = self.world.resource_mut::<Schedules>();
         schedules.add_systems(schedule, systems);
 
+        self
+    }
+
+    pub fn set_window(
+        &mut self,
+        window : Window
+    ) -> &mut Self {
+        let window = window;
+        self.world.insert_resource(window);
         self
     }
 
@@ -125,11 +152,29 @@ pub struct SubApps {
 }
 
 impl SubApps {
+    pub fn pre_start_up(&mut self) {
+        self.main.pre_start_up();
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            sub_app.extract(&mut self.main.world);
+            sub_app.pre_start_up();
+            sub_app.extract(&mut self.main.world);
+        }
+    }
+
     pub fn start_up(&mut self) {
         self.main.start_up();
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             sub_app.extract(&mut self.main.world);
             sub_app.start_up();
+            sub_app.extract(&mut self.main.world);
+        }
+    }
+
+    pub fn post_start_up(&mut self) {
+        self.main.post_start_up();
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            sub_app.extract(&mut self.main.world);
+            sub_app.post_start_up();
             sub_app.extract(&mut self.main.world);
         }
     }

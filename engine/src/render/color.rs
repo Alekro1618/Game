@@ -12,6 +12,9 @@ impl Color {
     pub const RED: Self = Self::RGBA(RGBA::new(1.0, 0.0, 0.0, 1.0));
     pub const GREEN: Self = Self::RGBA(RGBA::new(0.0, 1.0, 0.0, 1.0));
     pub const BLUE: Self =Self::RGBA(RGBA::new(0.0, 0.0, 1.0, 1.0));
+    pub const YELLOW: Self =Self::RGBA(RGBA::new(1.0, 1.0, 0.0, 1.0));
+    pub const PURPLE: Self =Self::RGBA(RGBA::new(1.0, 0.0, 1.0, 1.0));
+    pub const CYAN: Self =Self::RGBA(RGBA::new(0.0, 1.0, 1.0, 1.0));
 
 }
 

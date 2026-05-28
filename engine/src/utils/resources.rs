@@ -5,7 +5,7 @@ use crate::{app::{App, FIXED_UPDATE, main_schedule::ScheduleLabel, plugin::Plugi
 pub struct ResourcePlugin;
 
 impl Plugin for ResourcePlugin {
-    fn build(&self, app:  &mut App) {
+    fn build(self, app:  &mut App) {
         app.add_systems::<F1<Commands>>(ScheduleLabel::PreStartup, setup);
     }
 }
@@ -23,10 +23,11 @@ impl Default for GameSpeed {
 }
 
 impl GameSpeed {
+    ///Returns actual game speed value. Use only for update each frame!
     pub fn value(&self) -> f32 {
         self.0
     }
-
+    ///Returns game speed relative to the fixed update. Use only for fixed update!
     pub fn relative(&self) -> f32 {
         self.0 * FIXED_UPDATE
     }

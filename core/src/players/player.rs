@@ -1,11 +1,13 @@
 use std::collections::VecDeque;
 
-use engine::{ecs::{entities::id::EntityId, observer::system_param::On, systems::{commands::Commands, query::Query}}, input::{button_input::ButtonInput, keyboard::KeyCode}, utils::{resources::GameSpeed, timer::Timer}};
-use engine_macros::{Component, Event};
+use engine::{ecs::{entities::id::EntityId, observer::system_param::On, systems::{commands::Commands, query::Query}}, input::{button_input::ButtonInput, keyboard::KeyCode}, utils::*};
+use engine_macros::{Component, Event, Message};
 
-use crate::{machines::machine::InteractWithMachine, utils::grid::{self, Point, SmoothToGrid}};
+use crate::{items::Item, machines::machine_type::MachineType, players::player_type::PlayerType, utils::grid::{self, Point, SmoothToGrid}};
 
 
+#[derive(Component)]
+pub struct PlayerSpeed(pub f32);
 
 #[derive(Component)]
 pub struct Player {
@@ -23,24 +25,28 @@ impl Player {
         }
     }
 
-    pub fn from(point : impl Into<Point>, actions : impl Into<VecDeque<PlayerAction>>) -> Self {
+    pub fn from(point : impl Into<Point>, actions : impl Into<VecDeque<PlayerAction>>, speed : f32) -> Self {
         let actions: VecDeque<PlayerAction>  = actions.into();
         Self {
             actions,
             current_action: None,
-            point: point.into()
+            point: point.into(),
         }
     }
 
     pub fn is_next_action_interact(&self) -> bool {
         self.actions.front().map(|a| match a {
-            PlayerAction::Interact(_) => true,
+            PlayerAction::Interact(_, _) => true,
             _ => false,
         }).unwrap_or(false)
     }
 
-    pub fn interact(&mut self, entity : EntityId) {
-        self.add_action(PlayerAction::Interact(entity));
+    pub fn disrupt(&mut self, entity : EntityId) {
+        self.add_action(PlayerAction::Disrupt(entity));
+    }
+
+    pub fn interact(&mut self, entity : EntityId, item : Option<Item>) {
+        self.add_action(PlayerAction::Interact(entity, item));
     }
 
     pub fn add_path(&mut self, path : Vec<Point>) {
@@ -60,23 +66,39 @@ impl Player {
     }
 }
 
-// Component for `Player`. If `Player` contains it then it waits for the next action
+/// When called will proceed with next action.
 #[derive(Event)]
 pub struct PendingAction(pub EntityId);
 
+/// Called on end of the step. Used to decide next action.
+#[derive(Event)]
+pub struct StepEnd(pub EntityId);
 
-#[derive(Event)] 
+
+#[derive(Event, Clone)] 
 pub struct SetPath {
-    pub entity : EntityId,
-    pub from: Point,
-    pub to: Point
+    pub player : PlayerType,
+    pub from : Point,
+    pub to : Point
 }
 
-
-#[derive(Event)] 
+#[derive(Event, Clone)] 
 pub struct Interact {
-    pub entity: EntityId,
-    pub machine: EntityId
+    pub player: PlayerType,
+    pub machine: MachineType,
+    pub item : Option<Item>
+}
+
+#[derive(Event, Clone)] 
+pub struct Disrupt {
+    pub player: PlayerType,
+    pub machine: MachineType,
+}
+
+#[derive(Message)]
+pub enum Command {
+    SetPath(PlayerType, Point),
+    Interact(PlayerType, MachineType),
 }
 
 
@@ -84,6 +106,7 @@ pub struct Interact {
 #[derive(Clone, Copy)]
 pub enum PlayerAction {
     WalkTo(Point),
-    Interact(EntityId),
+    Interact(EntityId, Option<Item>),
+    Disrupt(EntityId),
     Direction(Point)
 }

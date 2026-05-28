@@ -29,6 +29,25 @@ impl Observers {
     ) -> Option<&CachedObserver> {
         self.cache.get(&TypeId::of::<E>())
     }
+
+    pub fn get_mut<E: Event>(
+        &mut self
+    ) -> Option<&mut CachedObserver> {
+        self.cache.get_mut(&TypeId::of::<E>())
+    }
+
+    pub fn remove<E: Event>(
+        &mut self
+    ) -> Option<CachedObserver> {
+        self.cache.remove(&TypeId::of::<E>())
+    }
+
+    pub fn insert<E : Event>(
+        &mut self,
+        cached_observer : CachedObserver
+    ) {
+        self.cache.insert(TypeId::of::<E>(), cached_observer);
+    }
 }
 
 pub struct CachedObserver {
@@ -45,6 +64,7 @@ impl CachedObserver {
             observer_function: Box::new(move |world,   event| {
                 unsafe  {
                     let system = &mut *system.get();
+                    system.init(world);
                     system.set_on_state(event);
                     system.run(world);
                     system.apply(world);

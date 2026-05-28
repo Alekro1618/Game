@@ -1,9 +1,14 @@
 use std::{cell::UnsafeCell, collections::HashMap, slice::SliceIndex};
 
-use crate::ecs::{change_detection::tick::Tick, components::{Component, StorageType, id::ComponentId, info::ComponentInfo}, entities::id::EntityId, storage::column::Column};
+use crate::ecs::{change_detection::tick::Tick, components::{Component, StorageType, id::ComponentId, info::ComponentInfo}, entities::id::EntityId, storage::{column::Column, element_ref::ElementRef, row::RowRef}};
 
 pub mod column;
+pub mod row;
+pub mod element_ref;
 mod blob_array;
+pub mod blob_ref;
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableId(u32);
@@ -157,6 +162,24 @@ impl Table {
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(&component_id)
     }
+
+    pub fn get_row<'a>(&'a self, row : usize) -> Option<RowRef<'a>> {
+        if self.len() <= row {
+            return None;
+        }
+
+        unsafe {
+            let elements : Vec<ElementRef<'a>> =  self
+                .columns
+                .iter()
+                .map(|(component_id, column)|
+                    ElementRef::from(*component_id, column.get_as_blob_ref(row))
+                )
+                .collect();
+
+            Some(RowRef::from(elements))
+        }
+    }
     
     //Safety: 
     pub unsafe fn move_to(
@@ -210,6 +233,10 @@ impl Storages {
                 todo!("Implement")
             }
         }
+    }
+
+    pub fn get_table(&self, table_id : usize) -> Option<&Table> {
+        self.tables.get(table_id)
     }
 
     pub fn get_table_mut(&mut self, table_id : usize) -> Option<&mut Table> {

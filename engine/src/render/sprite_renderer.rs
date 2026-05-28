@@ -1,4 +1,4 @@
-use macroquad::{color::WHITE, shapes::{DrawRectangleParams, draw_rectangle_ex}, time::draw_fps, window::clear_background};
+use macroquad::{color::WHITE, shapes::{DrawRectangleParams, draw_rectangle_ex}, text::draw_text_ex, texture::{DrawTextureParams, draw_texture_ex}, time::draw_fps, window::clear_background};
 
 use crate::{app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{systems::{function_system::F1, query::Query}, worlds::World}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
 
@@ -9,7 +9,7 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 }
 
 impl Plugin for RenderPlugin {
-    fn build(&self, app:  &mut App) {
+    fn build(self, app:  &mut App) {
         
 
         app.add_systems::<F1<Query<(&Transform, &Sprite)>>>(ScheduleLabel::Update, render);
@@ -24,21 +24,18 @@ impl Plugin for RenderPlugin {
 fn render(drawable : Query<(&Transform, &Sprite)>) {
     clear_background(WHITE);
     for (transform, sprite) in drawable {
-        if let Some(_texture) = &sprite.texture {
-            //todo!("");
-        } else {
-            draw_rectangle_ex(
-                transform.position.x,
-                transform.position.y,
-                transform.scale.x * sprite.custom_size.unwrap().x,
-                transform.scale.y * sprite.custom_size.unwrap().y,
-                DrawRectangleParams {
-                    offset: Vec2::ZERO.into(),
-                    rotation: transform.rotation,
-                    color: (&sprite.color).into(),
-                }
-            );
-        } 
+        //TODO: Add custom drawing of images
+        draw_rectangle_ex(
+            transform.position.x,
+            transform.position.y,
+            transform.scale.x * sprite.custom_size.unwrap().x,
+            transform.scale.y * sprite.custom_size.unwrap().y,
+            DrawRectangleParams {
+                offset: Vec2::ZERO.into(),
+                rotation: transform.rotation,
+                color: (&sprite.color).into(),
+            }
+        );
     }
     draw_fps();
 }

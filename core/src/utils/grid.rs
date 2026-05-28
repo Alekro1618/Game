@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::{Display, Pointer}};
 
 use bitmap::Bitmap;
+use bitvec::vec::BitVec;
 use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, systems::{function_system::{F1, F2}, query::Query}}, error::error::{Error, ErrorKind}, math::{transform::{self, Transform}, vec::Vec2}};
 use engine_macros::{Component, Resource};
 
@@ -33,9 +34,6 @@ impl Point {
     }
 
     fn byte_index(&self, width : usize, height : usize) -> usize {
-        if (self.x > 100) {
-            println!("")
-        }
         self.y * height + self.x
     }
 
@@ -81,16 +79,27 @@ pub enum GridName {
     Interactables
 }
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+pub enum SpecialKeys {
+    CashRegister,
+    Entrence,
+    Exit,
+    ServicePlace
+}
+
+
+
 #[derive(Resource)]
 pub struct Grid {
     width : usize,
     height : usize,
-    maps: HashMap<GridName, u128>,
+    maps: HashMap<GridName, BitVec>,
     position : Vec2,
-    angle : f32,
+    rotation : f32,
     dx : f32,
     dy : f32,
-    vectors : [Vec2; 128]
+    vectors : Vec<Vec2>,
+    specials : HashMap<SpecialKeys, Point>
 }
 
 impl Default for Grid {
@@ -100,10 +109,11 @@ impl Default for Grid {
             height: Default::default(),
             maps: Default::default(),
             position: Default::default(),
-            angle: Default::default(),
+            rotation: Default::default(),
             dx: Default::default(), 
             dy: Default::default(),
-            vectors: [Vec2::default(); 128] }
+            vectors: Vec::with_capacity(0),
+            specials: Default::default()}
     }
 }
 
@@ -113,14 +123,14 @@ impl Grid  {
         Self::from(width, height, Vec2::ZERO, 0.0, dx, dy)
     }
 
-    pub fn from(width : usize, height : usize, position : Vec2, angle : f32, dx : f32, dy : f32) -> Self {
-        let mut vectors = [Vec2::ZERO; 128];
+    pub fn from(width : usize, height : usize, position : Vec2, rotation : f32, dx : f32, dy : f32) -> Self {
+        let mut vectors = Vec::with_capacity(width * height);
         for j in 0..height {
             for i in 0..width {
-                vectors[i + j * height] = Vec2 {
+                vectors.insert(i + j * height, Vec2 {
                     x: i as f32 * dx + position.x,
                     y: j as f32 * dy + position.y
-                }
+                });
             }
         }
         Self { 
@@ -128,43 +138,55 @@ impl Grid  {
             height,
             maps: HashMap::new(),
             position, 
-            angle, 
+            rotation, 
             dx, 
             dy,
-            vectors
+            vectors,
+            specials: HashMap::new()
         }
     }
 
     #[inline]
-    pub fn create_map<'a>(&mut self, label : GridName) {
-        self.maps.insert(label, 0u128);
+    pub fn create_map(&mut self, label : GridName) {
+        self.maps.insert(label, BitVec::repeat(false, self.width * self.height));
     }
 
     #[inline]
-    pub fn add_to_map<'a>(&mut self, label : GridName, point : impl Into<Point>) {
-        let index = point.into().byte_index(self.width, self.height);
-        self.maps.get_mut(&label).map(|b| *b |= 1u128 << index);
+    pub fn add_to_map(&mut self, label : GridName, point : impl Into<Point>) {
+        let point = point.into();
+        let index = point.byte_index(self.width, self.height);
+        self.maps.get_mut(&label).map(|b| b.set(index, true));
+    }
+
+    #[inline]
+    pub fn add_special(&mut self, label : SpecialKeys, point : impl Into<Point>) {
+        let point = point.into();
+        self.specials.insert(label, point);
+    }
+
+    #[inline]
+    pub fn get_special(&self, label : SpecialKeys) -> Point {
+        self.specials[&label]
     }
 
     #[inline]
     pub fn clear(&mut self) {
-        self.maps.iter_mut().for_each(|(_, b)| *b = 0u128);
+        self.maps.iter_mut().for_each(|(_, b)| b.fill(false));
     }
 
     #[inline]
     pub fn clear_map<'a>(&mut self, label : GridName) {
-        self.maps.get_mut(&label).map(|b| *b = 0u128);
+        self.maps.get_mut(&label).map(|b| b.fill(false));
     }
 
     #[inline]
     pub fn remove_from_map<'a>(&mut self, label : GridName, point : impl Into<Point>) {
         let index = point.into().byte_index(self.width, self.height);
-        self.maps.get_mut(&label).map(|b| *b &= !1u128 << index);
+        self.maps.get_mut(&label).map(|b| b.set(index, false));
     }
 
     pub fn to_vec(&self, point : impl Into<Point>) -> Vec2 {
         let d= point.into();
-        println!("{}", d);
         let index = d.byte_index(self.width, self.height);
         self.vectors[index]
     }
@@ -198,7 +220,7 @@ impl Grid  {
     pub fn get_point<'a>(&self, label : GridName, point : impl Into<Point>) -> Point {
         let mut point = point.into();
         let index = point.byte_index(self.width, self.height);
-        point.value = self.maps.get(&label).map(|b| *b & (1u128 << index) != 0u128);
+        point.value = self.maps.get(&label).map(|b| *b.get(index).as_deref().unwrap_or_else(|| panic!("{}", point)));
         point
     }
 
@@ -288,10 +310,14 @@ pub fn transform_to_point(query : Query<(&Transform, &mut LockToGrid)>, grid : &
     }
 }
 
-pub fn update_grid(mut grid : Mut<'_, Grid>, query : Query<&LockToGrid>) {
+pub fn update_grid(mut grid : Mut<'_, Grid>, query_lock : Query<&LockToGrid>, query_smooth : Query<&SmoothToGrid>) {
     grid.clear();
-    for point in query {
+    for point in query_lock {
         grid.add_to_map(point.map_name, point.position);
+    }
+
+    for smooth in query_smooth {
+        grid.add_to_map(smooth.map_name, smooth.target);
     }
 }
 

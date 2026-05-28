@@ -2,7 +2,7 @@ use std::{collections::HashMap, num::NonZero, pin::Pin, time::Instant};
 
 use macroquad::{color::WHITE, time::get_frame_time, window::{clear_background, next_frame}};
 
-use crate::{app::{main_schedule::ScheduleLabel, plugin::{GenericPlugin, Plugin}, sub_app::{SubApp, SubApps}}, ecs::{event::Event, message::Message, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem}};
+use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin, sub_app::{SubApp, SubApps}}, ecs::{event::Event, message::Message, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem}, window::Window};
 
 pub mod main_schedule;
 pub mod plugin;
@@ -29,8 +29,11 @@ fn tick(app : &mut App, fixed_update : bool) -> Result<(), AppExit> {
 async fn run_update(mut app: App) -> AppExit {
     let mut timer : f32 = 0.0;
     let mut fixed_update = true;
-
+    
+    app.pre_start_up();
     app.start_up();
+    app.post_start_up();
+    
     loop {
         timer += get_frame_time();
         if timer >= FIXED_UPDATE {
@@ -85,8 +88,16 @@ impl App {
         }
     }
 
+    pub fn pre_start_up(&mut self) {
+        self.sub_apps.pre_start_up();
+    } 
+
     pub fn start_up(&mut self) {
         self.sub_apps.start_up();
+    } 
+
+    pub fn post_start_up(&mut self) {
+        self.sub_apps.post_start_up();
     } 
 
     pub fn pre_update(&mut self) {
@@ -143,8 +154,8 @@ impl App {
         self
     }
 
-    pub fn add_generic_plugin<T>(&mut self, plugin : impl GenericPlugin<T>) -> &mut Self {
-        plugin.build(self);
+    pub fn add_message<M : Message>(&mut self) -> &mut Self {
+        self.main_mut().add_message::<M>();
         self
     }
 
@@ -164,6 +175,11 @@ impl App {
 
     pub fn insert_sub_app(&mut self, label: impl ToString, sub_app: SubApp) {
         self.sub_apps.sub_apps.insert(label.to_string(), sub_app);
+    }
+
+    pub fn set_window(&mut self, window : Window) -> &mut Self {
+        self.main_mut().set_window(window);
+        self
     }
 
     // pub fn add_message<M : Message>(&mut self) -> Self {

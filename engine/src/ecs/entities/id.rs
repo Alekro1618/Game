@@ -1,9 +1,12 @@
 use std::{fmt::Display};
 
+use serde::Serialize;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize)]
 pub struct EntityId {
     id: u32,
+    #[serde(skip_serializing)]
     gnr: u32
 }
 

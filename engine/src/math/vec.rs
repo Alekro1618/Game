@@ -1,4 +1,4 @@
-use std::{ fmt::Display, ops::{Add, AddAssign, BitXor, Mul, Neg, Sub}};
+use std::{ fmt::Display, ops::{Add, AddAssign, BitOr, BitXor, Mul, Neg, Sub}};
 
 pub fn vec2(x : impl Into<f32>, y : impl Into<f32>) -> Vec2{
     Vec2::new(x.into(), y.into())
@@ -65,18 +65,18 @@ impl Vec2 {
     }
 
     #[inline]
-    pub fn norm_sq(self) -> f32 {
+    pub fn norm_sq(&self) -> f32 {
         self ^ self
     }
 
     #[inline]
-    pub fn norm(self) -> f32 {
+    pub fn norm(&self) -> f32 {
         //TODO: REMAKE
         self.norm_sq().sqrt()
     }
 
     #[inline]
-    pub fn norm_inv(self) -> f32 {
+    pub fn norm_inv(&self) -> f32 {
         //TODO: REMAKE
         self.norm_sq().sqrt().recip()
     }
@@ -117,6 +117,16 @@ impl Vec2 {
             x: self.x * rhs.x,
             y: self.y * rhs.y 
         }
+    }
+
+    #[inline]
+    pub fn cos_angle(&self, rhs: &Self) -> f32 {
+        self.normalize() ^ rhs.normalize()
+    }
+
+    #[inline]
+    pub fn sin_angle(&self, rhs: &Self) -> f32 {
+        self.normalize() | rhs.normalize()
     }
 
     #[inline]
@@ -187,11 +197,28 @@ impl Mul<Vec2> for f32 {
     }
 }
 
+impl BitXor for &Vec2 {
+    type Output = f32;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        self.x * rhs.x + self.y * rhs.y
+    }
+}
+
+
 impl BitXor for Vec2 {
     type Output = f32;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         self.x * rhs.x + self.y * rhs.y
+    }
+}
+
+impl BitOr for Vec2 {
+    type Output = f32;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        self.x * rhs.y - self.y * rhs.x
     }
 }
 

@@ -8,3 +8,6 @@ use crate::utils::grid::Point;
 
 #[derive(Event)]
 pub struct MoveQueue;
+
+#[derive(Event)]
+pub struct SpawnRandomClient;

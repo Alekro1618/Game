@@ -1,10 +1,7 @@
-use macroquad::texture::Texture2D;
+use crate::{asset::handle::Handle, ecs::components::{Component, Mutable, StorageType}, image::{BLANK_IMAGE_HANDLE, Image}, math::{rect::Rect, vec::Vec2}, render::color::Color};
 
-use crate::{ecs::components::{Component, Mutable, StorageType}, math::{rect::Rect, vec::Vec2}, render::color::Color};
-
-#[derive(Default)]
 pub struct Sprite {
-    pub texture : Option<Texture2D>,
+    pub texture : Handle<Image>,
     pub color: Color,
     pub flip_x: bool,
     pub flip_y: bool,
@@ -34,17 +31,17 @@ impl Component for Sprite {
 impl Sprite {
     pub fn from_color(color: impl Into<Color>, size: Vec2) -> Self {
         Self {
+            texture: BLANK_IMAGE_HANDLE.to_owned(),
             color: color.into(),
             custom_size: Some(size),
-            ..Default::default()
+            flip_x: false,
+            flip_y: false,
+            rect: None,
+            image_mode: Default::default(),
         }
     }
 
     pub fn size(&self) -> Vec2 {
-        if let Some(txt) = &self.texture {
-            let d = txt.size();
-            return Vec2::new(d.x, d.y);
-        }
 
         if let Some(custom) = &self.custom_size {
             return *custom;

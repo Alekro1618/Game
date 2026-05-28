@@ -12,6 +12,10 @@ pub mod ui;
 pub mod window;
 pub mod helper;
 pub mod app;
+pub mod scene;
+pub mod image;
+pub mod texture;
+pub mod video;
 
 #[cfg(test)]
 mod test;

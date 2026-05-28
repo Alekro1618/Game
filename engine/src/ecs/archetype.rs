@@ -42,6 +42,10 @@ impl Archetype {
         self.id
     }
 
+    pub fn entites(&self) -> Vec<EntityId> {
+        self.entities.keys().map(|e| *e).collect()
+    }
+
     pub fn archetype_components(&self) -> &Vec<ComponentId> {
         &self.components
     }

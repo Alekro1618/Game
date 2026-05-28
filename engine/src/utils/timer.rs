@@ -2,39 +2,63 @@ use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
 use engine_macros::Resource;
 
-use crate::{app::{FIXED_UPDATE, main_schedule::ScheduleLabel, plugin::{GenericPlugin, Plugin}}, ecs::{change_detection::params::Mut, components::{Component, Mutable, StorageType}, entities::id::EntityId, event::Event, resource::Resource, systems::{commands::Commands, function_system::{F1, F2, F3}, query::Query}}, utils::resources::GameSpeed};
+use crate::{app::{FIXED_UPDATE, main_schedule::ScheduleLabel, plugin::{Plugin}}, ecs::{change_detection::params::Mut, components::{Component, Mutable, StorageType}, entities::id::EntityId, event::Event, resource::Resource, systems::{commands::Commands, function_system::{F1, F2, F3}, query::Query}}, utils::resources::GameSpeed};
 
 pub const TIME_EPSILON : f32 = 1e-2;
 
 
-pub struct OnTimerFinished<T> 
-where T : Sync + Send + 'static {
-    pub result : Option<T>
+pub struct OnTimerFinished<M, T> 
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static  {
+    pub result : Option<T>,
+    _phantom : PhantomData<M>
 }
 
-impl<T>  Event for OnTimerFinished<T> 
-where T : Sync + Send + 'static {
-    
+impl<M, T> Event for OnTimerFinished<M, T>
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static  {}
+
+
+pub struct StopTimer<M, T> 
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static  {
+    pub result : Option<T>,
+    _phantom : PhantomData<M>
 }
 
-pub struct Timer<T>
-where T : Sync + Send + 'static {
+impl<M, T> Event for StopTimer<M, T>
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static  {}
+
+pub struct Timer<M, T>
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static {
     pub result : Option<T>,
     pub value : f32,
     pub begin : f32,
     pub end : f32,
     done : bool,
     fliped : bool,
+    _phantom : PhantomData<M>
 }
 
-impl<T> Component for Timer<T>
-where T : Sync + Send + 'static {
+impl<M, T> Component for Timer<M, T>
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static {
     const STORAGE_TYPE: StorageType = StorageType::Table;
     type Mutability = Mutable;
 }
 
-impl<T> Timer<T>
-where T : Sync + Send + 'static {
+impl<M, T> Timer<M, T>
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static {
     pub fn new( begin : f32, end : f32) -> Self {
         if begin < end {
             Self {
@@ -43,7 +67,8 @@ where T : Sync + Send + 'static {
                 begin,
                 end, 
                 done: false,
-                fliped: false 
+                fliped: false,
+                _phantom : PhantomData
             }
         } else {
             Self { 
@@ -52,7 +77,9 @@ where T : Sync + Send + 'static {
                 begin, 
                 end,
                 done: false,
-                fliped: true }
+                fliped: true,
+                _phantom : PhantomData 
+            }
         }
     }
 
@@ -93,22 +120,27 @@ where T : Sync + Send + 'static {
     }
 }
 
-fn update_timers<T>(mut command : Commands, query : Query<(EntityId, &mut Timer<T>)>, game_speed : &GameSpeed)
-where T : Sync + Send + 'static + Clone + Copy {
+fn update_timers<M, T>(mut command : Commands, query : Query<(EntityId, &mut Timer<M, T>)>, game_speed : &GameSpeed)
+where 
+    T : Sync + Send + 'static,
+    M : Sync + Send + 'static 
+{
     for (entity, mut timer) in query {
         timer.update(game_speed.relative());
         if timer.done {
-            command.trigger(OnTimerFinished::<T> { result: timer.take_result() });
+            command.trigger(OnTimerFinished::<M, T> { result: timer.take_result(), _phantom : PhantomData });
             command.despawn(entity);
         }
     }
 }
 
-pub struct TimerPlugin<T>(pub PhantomData<T>);
+pub struct TimerPlugin<M, T>(pub PhantomData<(M, T)>);
 
-impl<T> Plugin for TimerPlugin<T>
-where T : Sync + Send + 'static + Clone + Copy {
-    fn build(&self, app:  &mut crate::app::App) {
-        app.add_systems::<F3<Commands, Query<(EntityId, &mut Timer<T>)>, &GameSpeed>>(ScheduleLabel::FixedUpdate, update_timers::<T>);
+impl<M, T> Plugin for TimerPlugin<M, T>
+where 
+    T : Sync + Send + 'static + Clone + Copy,
+    M : Sync + Send + 'static  {
+    fn build(self, app:  &mut crate::app::App) {
+        app.add_systems::<F3<Commands, Query<(EntityId, &mut Timer<M, T>)>, &GameSpeed>>(ScheduleLabel::FixedUpdate, update_timers::<M, T>);
     }
 }

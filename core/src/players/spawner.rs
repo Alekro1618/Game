@@ -21,3 +21,23 @@ pub struct SpawnedService(pub EntityId, pub Service);
 #[derive(Event)]
 pub struct SpawnedEnemy(pub EntityId, pub Enemy);
 
+
+#[derive(Event)]
+pub struct DespawnClient(pub Client);
+
+#[derive(Event)]
+pub struct DespawnService(pub Service);
+
+#[derive(Event)]
+pub struct DespawnEnemy(pub Enemy);
+
+#[derive(Event)]
+pub struct DespawnedClient(pub EntityId, pub Client);
+
+#[derive(Event)]
+pub struct DespawnedService(pub EntityId, pub Service);
+
+#[derive(Event)]
+pub struct DespawnedEnemy(pub EntityId, pub Enemy);
+
+

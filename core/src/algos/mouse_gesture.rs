@@ -1,9 +1,30 @@
 use std::f32;
-use engine::math::vec::Vec2;
+use engine::math::{circle, vec::Vec2};
 
 
-pub fn mouse_spiral(path : &Vec<Vec2>) -> f32 {
-    todo!()
+pub fn mouse_spiral(path : &[Vec2]) -> f32 {
+    if path.len() < 2 {
+        return 0.0;
+    }
+
+    let mut power = Vec2::ZERO;
+    let mut factor = 1.0;
+    let center = circle(path.try_into().unwrap());    
+    let mut angle = 0.0;
+
+    //Since we find angle difference between 2 close points,
+    // the center of circle will be far away and angle will be small. So we use approximation cos x = x
+    
+    for window in path.windows(2) {
+        let a =window[0];
+        let b = window[1];
+
+        power += factor * a;
+        factor /= 2.0;
+        angle += (a - center).cos_angle(&(b - center));
+    }
+    
+    power.norm() * angle
 }
 
 pub fn mouse_shaking(path : &Vec<Vec2>) -> f32 {

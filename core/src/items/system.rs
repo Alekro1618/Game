@@ -12,6 +12,7 @@ pub fn on_add_to_inventory(
         panic!("No inventory")
     };
     inventory.add(item);
+    println!("added {:#?} to {}", item, entity_id);
 }
 
 pub fn on_remove_from_inventory(
@@ -24,4 +25,5 @@ pub fn on_remove_from_inventory(
         panic!("No inventory")
     };
     inventory.remove(item);
+    println!("removed {:#?} from {}", item, entity_id);
 }

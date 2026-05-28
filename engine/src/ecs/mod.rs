@@ -16,3 +16,5 @@ pub mod resource;
 pub mod ptr;
 pub mod message;
 pub mod observer;
+pub mod relfect;
+pub mod type_register;

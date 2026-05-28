@@ -41,6 +41,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             return Err(Error::new(ErrorKind::ECS, "Entity does not exist"));
         };
         let row = location.table_row;
+        let table_id = location.table_id;
+
+        let table = self.world.storages.get_table(table_id as usize);
+
+        if table.is_none() {
+            return Err(Error::new(ErrorKind::ECS, "Table containing entity doesn't exist"));
+        }
+
+        let table = table.unwrap();
+
+        if table.is_empty() {
+            return Err(Error::new(ErrorKind::ECS, "Table containing entity doesn't have components"));
+        }
+
+        unsafe {
+            D::set_table(&mut fetch, &self.state.fetch_state, table);
+            F::set_table(&mut filter, &self.state.filter_state, table);
+        }
 
         if !F::filter_fetch(&self.state.filter_state, &mut filter, entity, row) {
             return Err(Error::new(ErrorKind::ECS, "No matching entities"));
@@ -48,11 +66,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
         let item =
             unsafe { D::fetch(&self.state.fetch_state, &mut fetch, entity, row) };
+
         if let Some(item) = item {
             return Ok(item);
         }
 
-        return Err(Error::new(ErrorKind::ECS, "Entity doesn't contain component"));
+        return Err(Error::new(ErrorKind::ECS, format!("Entity {} doesn't contain bundle", entity)));
     }
 }
 

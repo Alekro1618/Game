@@ -8,3 +8,5 @@ macroquad = "0.4.14"
 engine_macros = {path = "engine_macros"}
 ron = "0.12.1"
 serde = { version = "1.0.228", features = ["derive"]}
+erased-serde = "0.4.10"
+downcast-rs = "2.0.2"

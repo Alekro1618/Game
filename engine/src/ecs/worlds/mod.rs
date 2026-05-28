@@ -1,8 +1,9 @@
 use std::{any::TypeId, collections::HashSet, sync::atomic::AtomicU32};
 
+use downcast_rs::Downcast;
 use macroquad::prelude::warn;
 
-use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::{ArchetypeId, Archetypes}, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::{ComponentId, ComponentIdsArray}, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, event::{Event, EventWrapperComponent}, lifecycle::RemovedComponentMessages, observer::{centralized_storage::Observers, distributed_storage::{IntoObserver, Observer}}, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::{commands::command::CommandQueue, observer_system::{IntoObserverSystem, ObserverSystem}}, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
+use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::{Archetype, ArchetypeId, Archetypes}, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::{ComponentId, ComponentIdsArray}, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, event::{Event, EventWrapperComponent}, lifecycle::RemovedComponentMessages, message::{Message, messages::Messages}, observer::{centralized_storage::Observers, distributed_storage::{IntoObserver, Observer}}, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::{commands::command::CommandQueue, observer_system::{IntoObserverSystem, ObserverSystem}, system}, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
 mod id;
 pub mod assert;
 pub mod log;
@@ -226,6 +227,15 @@ impl World {
         }
     }
 
+    pub fn get_archetype(&self, entity: EntityId) -> Option<&Archetype> {
+        if !self.entities.is_alive(entity) {
+            return None;
+        }
+
+        let archetype_id = self.entities.get_spawned(entity).ok()?.archetype_id;
+        self.archetypes.get(archetype_id)
+    }
+
     pub fn get_component_mut<T: Component>(&mut self, entity: EntityId) -> Option<&mut T> {
         if !self.entities.is_alive(entity) {
             return None;
@@ -253,7 +263,35 @@ impl World {
     }
 
     pub fn despawn(&mut self, entity: EntityId) {
-        todo!("needs implementation")
+        let location = self.entities.get_spawned(entity).unwrap();
+        if self.entities.free(entity) {
+            self.despawn_unchecked(entity, location)
+        }
+    }
+
+    pub fn despawn_unchecked(&mut self, entity: EntityId, location : EntityLocation) {
+        let change_tick = self.change_tick();
+
+        let table = self.storages.get_table_mut(location.table_id as usize).unwrap();
+        let _ = table.remove_entity(location.table_row as usize);
+
+        let (last_entity, last_row) = self
+            .archetypes
+            .get_mut(location.archetype_id)
+            .unwrap()
+            .swap_remove(entity, location.table_row);
+        
+        //set entity replaced by moved location
+        if let Some(last_entity_id) = last_entity {
+            self.entities.set_location(
+                last_entity_id, 
+                EntityLocation { 
+                    archetype_id: location.archetype_id, 
+                    table_id: location.table_id, 
+                    table_row: last_row
+                }
+            );
+        }
     }
 
     pub fn insert<B: Bundle>(
@@ -466,6 +504,7 @@ impl World {
         self.query_filtered::<D, ()>()
     }
 
+
     #[inline]
     pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
@@ -473,29 +512,37 @@ impl World {
 
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        let component_id = self.components().get_id(TypeId::of::<R>())?;
+
         self
             .resource_entities
-            .get::<R>()
+            .get::<R>(component_id)
 
     }
 
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        let component_id = self.components().get_id(TypeId::of::<R>())?;
+
         self
             .resource_entities
-            .get_mut::<R>()
+            .get_mut::<R>(component_id)
             .map(|r| Mut { value: r})
 
     }
 
     pub fn init_resource<R: Resource + Default>(&mut self) {
-        if !self.resource_entities().contains::<R>() {
+        let component_id = self.register_resource::<R>();
+
+        if !self.resource_entities().contains::<R>(component_id) {
             self.insert_resource(R::default());
         }
     }
 
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
-        self.resource_entities.insert(value);
+        let component_id = self.register_resource::<R>();
+
+        self.resource_entities.insert(component_id, value);
     }
 
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
@@ -533,6 +580,10 @@ impl World {
         Ok(value)
     }
 
+    pub fn add_message<M : Message>(&mut self) {
+        self.insert_resource(Messages::<M>::default());
+    }
+
     pub(crate) fn increment_trigger_id(&mut self) {
         self.last_trigger_id += 1;
     }
@@ -551,16 +602,11 @@ impl World {
         &mut self,
         event: &mut E,
     ) {
-        let observers = std::mem::take(&mut self.observes);
-        if let Some(observer) = observers.get::<E>() {
+        if let Some(observer) = self.observes.remove::<E>() {
             (observer.observer_function())(self, event as *mut E as *mut u8);
-        };
-        
-
-        self.observes = observers;
+            self.observes.insert::<E>(observer);
+        } 
     }
-
-
 
     #[inline]
     #[track_caller]
@@ -589,7 +635,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use std::{fmt::Display, vec};
 
-use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::EntityId, systems::commands::{Commands, command::CommandQueue}, worlds::{World, log::print_component_of}};
+use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::EntityId, query::filter::{With, Without}, systems::commands::{Commands, command::CommandQueue}, worlds::{World, log::print_component_of}};
 
     #[derive(PartialEq, Eq, Debug)]
     pub struct A;
@@ -834,5 +880,36 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
         assert_eq!(world.get_component::<D>(e1), Some(&D(vec![1])));
         assert_eq!(world.get_component::<D>(e2), Some(&D(vec![5])));
         assert_eq!(world.get_component::<D>(e3), Some(&D(vec![5, 4, 3, 2, 1, 5])));
+    }
+
+
+    #[test]
+    fn test_query_with_without() {
+        let mut world = World::new();
+        let e1 = world.spawn((A, B));
+        let e2 = world.spawn((A, C));
+        let e3 = world.spawn((B, C));
+
+        let mut query_1 = world.query_filtered::<(EntityId, &A), With<B>>();
+        let mut list_1 = Vec::new();
+        for (entity, a) in query_1.iter(&mut world) {
+            list_1.push(entity);
+        }
+
+        let mut query_2 = world.query_filtered::<(EntityId, &A), Without<C>>();
+        let mut list_2 = Vec::new();
+        for (entity, a) in query_2.iter(&mut world) {
+            list_2.push(entity);
+        }
+
+        for (entity) in list_1 {
+            assert_eq!(world.get_component::<B>(entity), Some(&B));
+        }
+
+        for (entity) in list_2 {
+            assert_eq!(world.get_component::<C>(entity), None);
+        }
+
+        
     }
 }

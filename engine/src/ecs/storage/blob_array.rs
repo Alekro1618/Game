@@ -1,5 +1,7 @@
 use std::{alloc::{Layout, alloc, realloc}, cell::UnsafeCell, fmt::Display, ptr::NonNull};
 
+use crate::ecs::storage::blob_ref::{BlobRef};
+
 
 pub struct BlobArray {
     item_layout: Layout,
@@ -94,10 +96,20 @@ impl BlobArray {
         }
     }
 
+    pub unsafe fn get_blob_ref<'a>(&'a self, row : usize) -> BlobRef<'a> {
+        unsafe {
+            let src = self.row_ptr(row);
+            
+            BlobRef::new(src, self.item_layout, self.drop)
+        }
+    }
+
+    #[inline]
     pub unsafe fn get_unchecked<T>(&self, row : usize) -> &T {
         unsafe { &*self.row_ptr(row).cast::<T>() }
     }
 
+    #[inline]
     pub unsafe fn get_mut_unchecked<T>(&mut self, row : usize) -> &mut T {
         unsafe { &mut *self.row_ptr(row).cast::<T>() }
     }

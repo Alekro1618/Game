@@ -7,7 +7,7 @@ pub mod register;
 use crate::ecs::lifecycle::ComponentHook;
 
 pub trait Component: Send + Sync + 'static {
-    const STORAGE_TYPE: StorageType;
+    const STORAGE_TYPE: StorageType = StorageType::Table;
     type Mutability: ComponentMutability;
 
     fn on_add() -> Option<ComponentHook> {

@@ -5,5 +5,23 @@ use engine_macros::Resource;
 
 use crate::machines::machine_type::MachineType;
 
-#[derive(Resource)]
-pub struct CashRegister(pub EntityId);
+#[derive(Resource, Default)]
+pub struct MachineRegister {
+    map : HashMap<MachineType, EntityId>
+}
+
+impl MachineRegister {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new()
+        }
+    }
+
+    pub fn get(&self, machine_type : &MachineType) -> Option<EntityId> {
+        self.map.get(machine_type).map(|e| *e)
+    }
+
+    pub fn insert(&mut self, machine_type : MachineType, entity: EntityId) {
+        self.map.insert(machine_type, entity);
+    }
+}

@@ -72,9 +72,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 
                 let table = table.unwrap();
 
-                if table.is_empty() {
+                if table.is_empty() ||
+                !F::matches_component_set(
+                    &self.query_state.filter_state, 
+                    &|component_id| { table.has_component(component_id)}
+                ) {
                     continue;
                 }
+                
                 unsafe {
                     D::set_table(&mut cursor.fetch, &self.query_state.fetch_state, table);
                     F::set_table(&mut cursor.filter, &self.query_state.filter_state, table);

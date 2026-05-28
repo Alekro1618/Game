@@ -1,6 +1,8 @@
 use std::{alloc::{Layout, alloc, realloc}, cell::UnsafeCell, fmt::Display, num::NonZeroUsize, ptr::NonNull};
 
-use crate::ecs::{change_detection::tick::Tick, components::Component, storage::blob_array::BlobArray};
+use crate::ecs::{change_detection::tick::Tick, components::Component, storage::{blob_array::BlobArray, blob_ref::BlobRef, element_ref::ElementRef}};
+
+
 
 pub struct Column {
     array : BlobArray,
@@ -78,6 +80,11 @@ impl Column {
     pub unsafe fn get(&self, row : usize) -> *const u8 {
         unsafe { self.array.get_unchecked(row) }
     }
+
+    pub unsafe  fn get_as_blob_ref<'a>(&'a self, row : usize) -> BlobRef<'a> {
+        unsafe { self.array.get_blob_ref(row) }
+    }
+
 
     ///Safety:
     pub unsafe fn get_mut(&mut self, row : usize) -> *mut u8 {

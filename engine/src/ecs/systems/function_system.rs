@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{any::type_name, marker::PhantomData};
 
 use crate::ecs::{change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{commands::{Commands, command::CommandQueue}, query::Query, system::System}, worlds::World};
 
@@ -31,10 +31,13 @@ where F : SystemParamFunction<Marker> {
     }
 
     fn run(&mut self, world: &mut World) {
-        
         let params = unsafe {
             let option = &mut self.state;
-            F::Param::get_param( option.as_mut().unwrap(), world)
+            if let Some(d) = option.as_mut() {
+                F::Param::get_param( option.as_mut().unwrap(), world)
+            }  else {
+                panic!("here")
+            }
         };
 
         self.func.run( params);
@@ -48,7 +51,7 @@ where
     pub fn new(func: F) -> Self {
         Self {
             func,
-            name: "",
+            name: F::name(),
             state: None,
             marker: PhantomData,
         }
@@ -69,6 +72,7 @@ pub trait SystemParamTuple {
 
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     type Param: SystemParamTuple;
+    fn name() -> &'static str { "" }
 
     fn run(
         &mut self,
@@ -330,6 +334,10 @@ impl<F> SystemParamFunction<F0> for F
 where F : Send + Sync + 'static + Fn() -> () {
     type Param = ();
 
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
+
     fn run(
         &mut self,
         _param_value: <Self::Param as SystemParamTuple>::Item<'_>,
@@ -344,6 +352,10 @@ where
     P1 : SystemParamTuple
     {
     type Param = P1;
+
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
 
     fn run(
         &mut self,
@@ -360,6 +372,10 @@ where
     P2 : SystemParamTuple
     {
     type Param = (P1, P2);
+
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
 
     fn run(
         &mut self,
@@ -378,6 +394,10 @@ where
     {
     type Param = (P1, P2, P3);
 
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
+
     fn run(
         &mut self,
         param_value: <Self::Param as SystemParamTuple>::Item<'_>,
@@ -395,6 +415,10 @@ where
     P4 : SystemParamTuple,
     {
     type Param = (P1, P2, P3, P4);
+
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
 
     fn run(
         &mut self,
@@ -415,6 +439,10 @@ where
     {
     type Param = (P1, P2, P3, P4, P5);
 
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
+
     fn run(
         &mut self,
         param_value: <Self::Param as SystemParamTuple>::Item<'_>,
@@ -434,6 +462,10 @@ where
     P6 : SystemParamTuple,
     {
     type Param = (P1, P2, P3, P4, P5, P6);
+
+    fn name() -> &'static str {
+        type_name::<F>()
+    }
 
     fn run(
         &mut self,

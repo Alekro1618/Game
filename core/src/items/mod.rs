@@ -1,18 +1,41 @@
-use std::{collections::HashMap, process::Command};
+use std::{collections::HashMap, fmt::Display, process::Command};
 
-use engine::ecs::{entities::id::EntityId, message::{Message, message_reader::MessageReader}, systems::commands::Commands};
+use engine::{app::plugin::Plugin, ecs::{entities::id::EntityId, message::{Message, message_reader::MessageReader}, observer::system_param::On, systems::{commands::Commands, function_system::F2, query::Query}}};
 use engine_macros::{Component, Event, Message};
 
-use crate::items::food::Food;
+use crate::items::{food::Food, system::{on_add_to_inventory, on_remove_from_inventory}};
 
 pub mod food;
 mod system;
 
+
+pub struct InventoryPlugin;
+
+impl Plugin for InventoryPlugin {
+    fn build(self, app:  &mut engine::app::App) {
+        app
+            .add_observer::<AddToInventory, F2<On<AddToInventory>, Query<&mut Inventory>>>(
+                on_add_to_inventory
+            )
+            .add_observer::<RemoveFromInventory, F2<On<RemoveFromInventory>, Query<&mut Inventory>>>(
+                on_remove_from_inventory
+            );
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum Item {
     Food(Food),
-    Money(u32),
-    None
+    Money(u32)
+}
+
+impl Display for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Item::Food(food) => write!(f, "{}", food),
+            Item::Money(amount) => write!(f, "{}$", amount),
+        }
+    }
 }
 
 #[derive(Event)]
