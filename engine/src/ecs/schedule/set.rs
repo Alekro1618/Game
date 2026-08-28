@@ -1,10 +1,12 @@
 use std::any::TypeId;
 
-
-
 pub trait SystemSet: 'static + Send + Sync {
-    fn id(&self) -> TypeId { TypeId::of::<Self>() }
-    fn name(&self) -> &'static str { std::any::type_name::<Self>() }
+    fn id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
+    fn name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
 }
 
 #[derive(Debug, Clone)]

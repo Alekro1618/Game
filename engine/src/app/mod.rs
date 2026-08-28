@@ -1,20 +1,30 @@
-use std::{collections::HashMap, num::NonZero, pin::Pin, time::Instant};
+use std::{collections::HashMap, num::NonZero, pin::Pin};
 
-use macroquad::{color::WHITE, time::get_frame_time, window::{clear_background, next_frame}};
-
-use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin, sub_app::{SubApp, SubApps}}, ecs::{event::Event, message::Message, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem}, window::Window};
+use crate::{
+    animation::{PlayerPlugin, player::Player}, app::{
+        main_schedule::ScheduleLabel,
+        plugin::Plugin,
+        sub_app::{SubApp, SubApps},
+    }, asset::{
+        asset::Asset,
+        loader::AssetLoader,
+    }, ecs::{
+        event::Event, message::{Message, MessagePlugin}, observer::distributed_storage::IntoObserver, resource::Resource, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::FromWorld,
+    }, window::Window,
+};
 
 pub mod main_schedule;
 pub mod plugin;
 pub mod sub_app;
 
-pub const FIXED_UPDATE : f32 = 2e-2;
+pub const FIXED_UPDATE: f32 = 2e-2;
 
 type RunnerFn = Box<dyn FnMut(App) -> Pin<Box<dyn Future<Output = AppExit>>>>;
 
-fn tick(app : &mut App, fixed_update : bool) -> Result<(), AppExit> {
+fn tick(app: &mut App, fixed_update: bool) -> Result<(), AppExit> {
     app.pre_update();
     app.update();
+    app.post_update();
     if fixed_update {
         app.fixed_update();
     }
@@ -27,35 +37,36 @@ fn tick(app : &mut App, fixed_update : bool) -> Result<(), AppExit> {
 }
 
 async fn run_update(mut app: App) -> AppExit {
-    let mut timer : f32 = 0.0;
+    let mut timer: f32 = 0.0;
     let mut fixed_update = true;
-    
+
     app.pre_start_up();
     app.start_up();
     app.post_start_up();
-    
+
     loop {
-        timer += get_frame_time();
+        //TODO:macroquad
+        timer += macroquad::time::get_frame_time();
         if timer >= FIXED_UPDATE {
             fixed_update = true;
             timer -= FIXED_UPDATE;
         }
-       
-        if let Err(exit) =  tick(&mut app, fixed_update) {
+
+        if let Err(exit) = tick(&mut app, fixed_update) {
             app.end();
             return exit;
         }
 
         fixed_update = false;
-        next_frame().await;
+
+        //TODO:macroquad
+        macroquad::window::next_frame().await;
     }
 }
 
 fn wrap_run_update(app: App) -> Pin<Box<dyn Future<Output = AppExit>>> {
     Box::pin(run_update(app))
 }
-
-
 
 pub struct App {
     pub(crate) sub_apps: SubApps,
@@ -90,15 +101,15 @@ impl App {
 
     pub fn pre_start_up(&mut self) {
         self.sub_apps.pre_start_up();
-    } 
+    }
 
     pub fn start_up(&mut self) {
         self.sub_apps.start_up();
-    } 
+    }
 
     pub fn post_start_up(&mut self) {
         self.sub_apps.post_start_up();
-    } 
+    }
 
     pub fn pre_update(&mut self) {
         self.sub_apps.pre_update();
@@ -118,8 +129,7 @@ impl App {
 
     pub fn end(&mut self) {
         self.sub_apps.end();
-    } 
-
+    }
 
     pub async fn run(&mut self) -> AppExit {
         let mut runner = core::mem::replace(&mut self.runner, Box::new(wrap_run_update));
@@ -149,13 +159,19 @@ impl App {
         &mut self.sub_apps.main
     }
 
-    pub fn add_plugin<P: Plugin>(&mut self, plugin : P) -> &mut Self {
+    pub fn add_plugin<P: Plugin>(&mut self, plugin: P) -> &mut Self {
         plugin.build(self);
         self
     }
 
-    pub fn add_message<M : Message>(&mut self) -> &mut Self {
+    pub fn insert_resource<R : Resource>(&mut self, resource : R) -> &mut Self {
+        self.main_mut().insert_resource(resource);
+        self
+    }
+
+    pub fn add_message<M: Message>(&mut self) -> &mut Self {
         self.main_mut().add_message::<M>();
+        self.add_plugin(MessagePlugin::<M>::default());
         self
     }
 
@@ -168,7 +184,10 @@ impl App {
         self
     }
 
-    pub fn add_observer<E: Event, M>(&mut self, observer: impl IntoObserverSystem<E, M>) -> &mut Self {
+    pub fn add_observer<E: Event, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, M>,
+    ) -> &mut Self {
         self.main_mut().add_observer(observer);
         self
     }
@@ -177,17 +196,31 @@ impl App {
         self.sub_apps.sub_apps.insert(label.to_string(), sub_app);
     }
 
-    pub fn set_window(&mut self, window : Window) -> &mut Self {
+    pub fn set_window(&mut self, window: Window) -> &mut Self {
         self.main_mut().set_window(window);
         self
     }
 
+    pub fn init_asset<A: Asset>(&mut self) -> &mut Self {
+        self.main_mut().init_asset::<A>();
+        self
+    }
+
+    pub fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
+        self.main_mut().init_asset_loader::<L>();
+        self
+    }
+
+    pub fn register_player<P: Player>(&mut self) -> &mut Self {
+        self.add_plugin(PlayerPlugin::<P>::new());
+
+        self
+    }
     // pub fn add_message<M : Message>(&mut self) -> Self {
     //     self.main_mut().add_message::<M>();
     //     self
     // }
 }
-
 
 pub enum AppExit {
     Success,

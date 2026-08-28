@@ -10,7 +10,6 @@ impl BuildHasher for EntityHash {
     }
 }
 
-
 #[derive(Debug, Default)]
 pub struct EntityHasher {
     hash: u64,

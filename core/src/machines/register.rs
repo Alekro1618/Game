@@ -7,13 +7,15 @@ use crate::machines::machine_type::MachineType;
 
 #[derive(Resource, Default)]
 pub struct MachineRegister {
-    map : HashMap<MachineType, EntityId>
+    map : HashMap<MachineType, EntityId>,
+    position : HashMap<MachineType, EntityId>
 }
 
 impl MachineRegister {
     pub fn new() -> Self {
         Self {
-            map: HashMap::new()
+            map: HashMap::new(),
+            position: HashMap::new()
         }
     }
 

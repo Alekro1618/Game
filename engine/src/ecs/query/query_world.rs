@@ -1,4 +1,6 @@
-use crate::ecs::{change_detection::tick::Tick, components::id::ComponentId, storage::Table, worlds::World};
+use crate::ecs::{
+    change_detection::tick::Tick, components::id::ComponentId, storage::Table, worlds::World,
+};
 
 pub trait WorldQuery {
     type Fetch<'w>: Clone;
@@ -18,7 +20,7 @@ pub trait WorldQuery {
         state: &'s Self::State,
         table: &'w Table,
     );
-    
+
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,

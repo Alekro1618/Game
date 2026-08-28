@@ -1,6 +1,13 @@
-use std::{collections::{HashMap, HashSet}, fmt::{Debug, Display}, ops::{Index, IndexMut}};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    ops::{Index, IndexMut},
+};
 
-use crate::ecs::{components::id::{ComponentId, ComponentIdsArray}, entities::{EntityLocation, id::EntityId}};
+use crate::ecs::{
+    components::id::ComponentId,
+    entities::{EntityLocation, id::EntityId},
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct ArchetypeId(u32);
@@ -19,22 +26,28 @@ impl ArchetypeId {
     }
 }
 
+impl Display for ArchetypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 pub struct Archetype {
     id: ArchetypeId,
     table_id: u32,
     entities: HashMap<EntityId, u32>,
     entities_vec: Vec<EntityId>,
-    components : Vec<ComponentId>
+    components: Vec<ComponentId>,
 }
 
 impl Archetype {
-    pub fn new(id : ArchetypeId, component_ids: Vec<ComponentId>, table_id: u32) -> Self {
+    pub fn new(id: ArchetypeId, component_ids: Vec<ComponentId>, table_id: u32) -> Self {
         Self {
             id,
             table_id,
             entities: HashMap::new(),
             entities_vec: Vec::new(),
-            components: component_ids
+            components: component_ids,
         }
     }
 
@@ -55,14 +68,12 @@ impl Archetype {
     }
 
     pub fn contains_all(&self, ids: &Vec<ComponentId>) -> bool {
-        ids
-            .iter()
+        ids.iter()
             .all(|component_id| self.components.contains(component_id))
     }
 
     pub fn contains_any(&self, ids: &Vec<ComponentId>) -> bool {
-        ids
-            .iter()
+        ids.iter()
             .all(|component_id| self.components.contains(component_id))
     }
 
@@ -74,13 +85,14 @@ impl Archetype {
         self.entities.get(&entity)
     }
 
-    pub fn insert(&mut self, entity: EntityId, row : u32) -> EntityLocation {
+    pub fn insert(&mut self, entity: EntityId, row: u32) -> EntityLocation {
         self.entities.insert(entity, row);
         self.entities_vec.insert(row as usize, entity);
-        EntityLocation { 
-            archetype_id: self.id, 
-            table_id: self.table_id, 
-            table_row: row }
+        EntityLocation {
+            archetype_id: self.id,
+            table_id: self.table_id,
+            table_row: row,
+        }
     }
 
     #[inline]
@@ -91,10 +103,7 @@ impl Archetype {
             (None, row)
         } else {
             self.entities.remove(&entity).unwrap();
-            let last_entity_id = self
-                .entities
-                .iter()
-                .max_by_key(|(_, value)| **value );
+            let last_entity_id = self.entities.iter().max_by_key(|(_, value)| **value);
 
             if let Some((&entity_id, _)) = last_entity_id {
                 self.entities.insert(entity_id, row);
@@ -102,7 +111,6 @@ impl Archetype {
             } else {
                 (None, row)
             }
-            
         }
     }
 }
@@ -135,7 +143,7 @@ struct ArchetypeComponents {
 }
 
 impl ArchetypeComponents {
-    fn contains(&self, component_id : &ComponentId) -> bool {
+    fn contains(&self, component_id: &ComponentId) -> bool {
         self.components.contains(component_id)
     }
 }
@@ -147,14 +155,13 @@ impl Display for ArchetypeComponents {
         if let Some(first) = iter.next() {
             write!(f, "{}", first)?;
         }
-        
+
         for component_id in iter {
             write!(f, ",{}", component_id)?;
         }
         write!(f, "]")
     }
 }
-
 
 #[allow(dead_code)]
 pub struct Archetypes {
@@ -165,8 +172,8 @@ pub struct Archetypes {
 impl Archetypes {
     pub fn new() -> Self {
         Self {
-            archetypes : Vec::new(),
-            by_components : HashMap::new(),
+            archetypes: Vec::new(),
+            by_components: HashMap::new(),
         }
     }
 
@@ -176,13 +183,23 @@ impl Archetypes {
     }
 
     #[inline]
-    pub fn get(&self, id: ArchetypeId) -> Option<&Archetype> {
-        self.archetypes.get(id.index())
+    pub fn get(&self, id: ArchetypeId) -> &Archetype {
+        unsafe { self.get_unchecked(id) }
     }
 
     #[inline]
-    pub fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
-        self.archetypes.get_mut(id.index())
+    pub unsafe fn get_unchecked(&self, id: ArchetypeId) -> &Archetype {
+        unsafe { self.archetypes.get_unchecked(id.index()) }
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, id: ArchetypeId) -> &mut Archetype {
+        unsafe { self.get_unchecked_mut(id) }
+    }
+
+    #[inline]
+    pub unsafe fn get_unchecked_mut(&mut self, id: ArchetypeId) -> &mut Archetype {
+        unsafe { self.archetypes.get_unchecked_mut(id.index()) }
     }
 
     #[inline]
@@ -193,22 +210,18 @@ impl Archetypes {
     pub(crate) fn insert_id(
         &mut self,
         table_id: u32,
-        table_components: Vec<ComponentId>
+        table_components: Vec<ComponentId>,
     ) -> ArchetypeId {
         let archetypes = &mut self.archetypes;
 
         let id = ArchetypeId::new(archetypes.len());
-        archetypes.push(Archetype::new(
-            id,
-            table_components.clone(),
-            table_id,
-        ));
+        archetypes.push(Archetype::new(id, table_components.clone(), table_id));
 
         self.by_components.insert(
             ArchetypeComponents {
-                components: table_components.into_boxed_slice() 
+                components: table_components.into_boxed_slice(),
             },
-            id
+            id,
         );
 
         id
@@ -216,9 +229,9 @@ impl Archetypes {
 
     pub(crate) fn get_id(&self, components: Vec<ComponentId>) -> Option<ArchetypeId> {
         let archetype_components = ArchetypeComponents {
-            components: components.into_boxed_slice()
+            components: components.into_boxed_slice(),
         };
-        
+
         match self.by_components.get(&archetype_components) {
             Some(id) => Some(*id),
             None => None,
@@ -227,7 +240,7 @@ impl Archetypes {
 
     pub(crate) fn contains_components(&self, components: Vec<ComponentId>) -> bool {
         let archetype_components = ArchetypeComponents {
-            components: components.into_boxed_slice()
+            components: components.into_boxed_slice(),
         };
         self.by_components.contains_key(&archetype_components)
     }

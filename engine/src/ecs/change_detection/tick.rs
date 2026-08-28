@@ -1,6 +1,5 @@
 use std::u32;
 
-
 #[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq)]
 pub struct Tick {
     tick: u32,
@@ -37,5 +36,4 @@ impl Tick {
         let tick = self.tick.wrapping_sub(other.tick);
         Self { tick }
     }
-
 }

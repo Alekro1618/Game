@@ -1,11 +1,15 @@
-use std::{any::TypeId, collections::{HashMap, HashSet, hash_map::Iter}, fmt::{Debug, Display}, hash::{Hash, RandomState}};
+use std::{
+    any::TypeId,
+    collections::{HashMap, hash_map::Iter},
+    fmt::{Debug, Display},
+    hash::{Hash, Hasher},
+};
 
-
-use crate::{ecs::{components::info::TypeIdMap, hash::NoOpHash}, error::error::Error};
+use crate::ecs::{components::info::TypeIdMap, hash::NoOpHash};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ComponentId {
-    pub id: u32
+    pub id: u32,
 }
 
 impl Default for ComponentId {
@@ -21,18 +25,16 @@ impl Into<u32> for ComponentId {
 }
 
 impl From<u32> for ComponentId {
-    fn from(num : u32) -> Self {
+    fn from(num: u32) -> Self {
         Self { id: num }
     }
 }
 
 impl ComponentId {
-    pub const PLACEHOLDER : Self = ComponentId { id : 0 };
+    pub const PLACEHOLDER: Self = ComponentId { id: 0 };
 
-    pub const fn new(id : u32) -> Self {
-        Self {
-            id
-        }
+    pub const fn new(id: u32) -> Self {
+        Self { id }
     }
 
     #[inline(always)]
@@ -47,30 +49,24 @@ impl Display for ComponentId {
     }
 }
 
-
 #[derive(PartialEq, Eq, Clone, Default)]
 pub struct ComponentIdsArray {
-    component_ids : Vec<ComponentId>,
-    type_map : TypeIdMap<ComponentId>
-    
+    component_ids: Vec<ComponentId>,
+    type_map: TypeIdMap<ComponentId>,
 }
 
 impl ComponentIdsArray {
     pub fn new() -> Self {
-        Self { 
-            component_ids: Vec::new(), 
-            type_map: HashMap::<TypeId, ComponentId, NoOpHash>::with_hasher(NoOpHash) 
+        Self {
+            component_ids: Vec::new(),
+            type_map: HashMap::<TypeId, ComponentId, NoOpHash>::with_hasher(NoOpHash),
         }
     }
 
-    pub fn from(type_map : TypeIdMap<ComponentId>) -> Self {
+    pub fn from(type_map: TypeIdMap<ComponentId>) -> Self {
         Self {
-            component_ids: type_map
-                .iter()
-                .map(|c| c.1)
-                .cloned()
-                .collect(),
-            type_map: type_map
+            component_ids: type_map.iter().map(|c| c.1).cloned().collect(),
+            type_map: type_map,
         }
     }
 
@@ -78,15 +74,15 @@ impl ComponentIdsArray {
         &self.component_ids
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a TypeId, &'a ComponentId)>{ 
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a TypeId, &'a ComponentId)> {
         self.into_iter()
     }
 
-    pub fn contains(&self, component_id : ComponentId) -> bool {
+    pub fn contains(&self, component_id: ComponentId) -> bool {
         self.component_ids.contains(&component_id)
     }
 
-    pub fn get(&self, type_id : TypeId) -> Option<ComponentId> {
+    pub fn get(&self, type_id: TypeId) -> Option<ComponentId> {
         self.type_map.get(&type_id).map(|c| *c)
     }
 
@@ -97,10 +93,7 @@ impl ComponentIdsArray {
 
 impl FromIterator<(TypeId, ComponentId)> for ComponentIdsArray {
     fn from_iter<T: IntoIterator<Item = (TypeId, ComponentId)>>(iter: T) -> Self {
-        let mut type_map = HashMap::with_capacity_and_hasher(
-            0, 
-            NoOpHash
-        );
+        let mut type_map = HashMap::with_capacity_and_hasher(0, NoOpHash);
         let mut component_ids = Vec::new();
 
         for (type_id, comp_id) in iter {
@@ -138,3 +131,20 @@ impl Display for ComponentIdsArray {
         write!(f, "}}")
     }
 }
+
+#[derive(Default)]
+pub struct ComponentIdHasher(u64);
+
+impl Hasher for ComponentIdHasher {
+    fn write(&mut self, _: &[u8]) {
+        unreachable!()
+    }
+    fn write_u32(&mut self, i: u32) {
+        self.0 = i as u64;
+    }
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+pub type ComponentIdMap<T> = std::collections::HashMap<ComponentId, T, NoOpHash>;

@@ -1,19 +1,23 @@
 use engine_macros::Component;
 
 
-#[derive(Component)]
+#[derive(Component, Default, PartialEq, Eq)]
 pub enum PlayerState {
+    #[default]
     /// Player is idle and does nothing. May hold item.
     Idle,
     /// Player is walking. May hold item. 
     Walking,
     /// Player is currently active with machine. Player that has this status should contain component [`WaitingFor`].
     Active,
+    /// Player is currently waiting for machine to end. 
+    Waiting,
     /// Player is currently repearing this machine. Player that has this status should contain component [`WaitingFor`].
     Repearing
 }
 
 impl PlayerState {
+    
     pub fn set_idle(&mut self) {
         *self = Self::Idle;
     }
@@ -30,6 +34,10 @@ impl PlayerState {
         *self = Self::Repearing;
     }
 
+     pub fn set_waiting(&mut self) {
+        *self = Self::Waiting;
+    }
+
     pub fn is_idle(&self) -> bool {
         matches!(self, PlayerState::Idle)
     }
@@ -44,5 +52,9 @@ impl PlayerState {
 
     pub fn is_repearing(&self) -> bool {
         matches!(self, PlayerState::Repearing)
+    }
+
+    pub fn is_waiting(&self) -> bool {
+        matches!(self, PlayerState::Waiting)
     }
 }

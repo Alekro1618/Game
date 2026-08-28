@@ -27,7 +27,6 @@ use crate::ecs::components::{Component, Mutable, StorageType};
 //     }
 // }
 
-
 // impl core::fmt::Display for Name {
 //     #[inline(always)]
 //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -86,15 +85,18 @@ impl Default for Name {
 
 impl Name {
     #[inline]
-    pub fn from(name : impl ToString) -> Self {
+    pub fn from(name: impl ToString) -> Self {
         Self(name.to_string())
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
     }
-}
 
+    pub fn equals(&self, name: impl ToString) -> bool {
+        self.0 == name.to_string()
+    }
+}
 
 impl core::fmt::Display for Name {
     #[inline(always)]

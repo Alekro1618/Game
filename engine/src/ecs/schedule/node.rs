@@ -1,5 +1,6 @@
-use crate::ecs::{schedule::schedule_system::ScheduleSystem, systems::node::SystemNode, worlds::World};
-
+use crate::ecs::{
+    schedule::schedule_system::ScheduleSystem, systems::node::SystemNode, worlds::World,
+};
 
 #[derive(Default)]
 pub(crate) struct Systems {
@@ -12,20 +13,15 @@ impl Systems {
         self.nodes.len()
     }
 
-    pub fn iter_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut SystemNode> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SystemNode> {
         self.nodes.iter_mut()
     }
 
-    pub fn apply(&mut self, world : &mut World) {
+    pub fn apply(&mut self, world: &mut World) {
         self.iter_mut().for_each(|n| n.apply(world));
     }
 
-    pub fn insert(
-        &mut self,
-        system: ScheduleSystem
-    ) -> usize {
+    pub fn insert(&mut self, system: ScheduleSystem) -> usize {
         let index = self.nodes.len();
         self.nodes.push(SystemNode::new(system));
         index

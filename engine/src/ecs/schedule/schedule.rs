@@ -1,8 +1,14 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
-
-use crate::{app::main_schedule::ScheduleLabel, ecs::{components::{Component, Mutable, StorageType}, resource::Resource, schedule::{config::IntoSchedule, node::Systems, schedule_system::ScheduleSystem}, worlds::World}};
-
+use crate::{
+    app::main_schedule::ScheduleLabel,
+    ecs::{
+        components::{Component, Mutable, StorageType},
+        resource::Resource,
+        schedule::{config::IntoSchedule, node::Systems, schedule_system::ScheduleSystem},
+        worlds::World,
+    },
+};
 
 pub struct Schedules {
     inner: HashMap<ScheduleLabel, Schedule>,
@@ -10,7 +16,7 @@ pub struct Schedules {
 
 impl Default for Schedules {
     fn default() -> Self {
-        Self { 
+        Self {
             inner: ScheduleLabel::ALL
                 .iter()
                 .map(|label| (label.clone(), Schedule::new(*label)))
@@ -40,14 +46,11 @@ impl Schedules {
 
     pub fn remove_temporarily(&mut self, label: ScheduleLabel) -> Option<Schedule> {
         let k = self.inner.remove(&label);
-        
+
         k
     }
 
-    pub fn remove_entry(
-        &mut self,
-        label: ScheduleLabel,
-    ) -> Option<(ScheduleLabel, Schedule)> {
+    pub fn remove_entry(&mut self, label: ScheduleLabel) -> Option<(ScheduleLabel, Schedule)> {
         self.inner.remove_entry(&label)
     }
 
@@ -70,13 +73,11 @@ impl Schedules {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&ScheduleLabel, &Schedule)> {
-        self.inner
-            .iter()
+        self.inner.iter()
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&ScheduleLabel, &mut Schedule)> {
-        self.inner
-            .iter_mut()
+        self.inner.iter_mut()
     }
 
     pub fn add_systems<M>(
@@ -90,11 +91,10 @@ impl Schedules {
     }
 }
 
-
 pub struct Schedule {
     label: ScheduleLabel,
     systems: Systems,
-    executor_initialized: bool
+    executor_initialized: bool,
 }
 
 impl Default for Schedule {
@@ -116,26 +116,23 @@ impl Schedule {
         self.label
     }
 
-    pub fn apply(&mut self, world : &mut World) {
+    pub fn apply(&mut self, world: &mut World) {
         self.systems.apply(world);
     }
 
-    pub fn add_systems<M>(
-        &mut self,
-        systems: impl IntoSchedule<ScheduleSystem, M>,
-    ) -> &mut Self {
+    pub fn add_systems<M>(&mut self, systems: impl IntoSchedule<ScheduleSystem, M>) -> &mut Self {
         self.executor_initialized = false;
         self.systems.insert(systems.into_schedule().node);
         self
     }
 
-    pub fn run(&mut self, world : &mut World) {
+    pub fn run(&mut self, world: &mut World) {
         if !self.executor_initialized {
             self.initialize(world);
         }
 
         for node in self.systems.iter_mut() {
-            node.system.run(world);
+            node.system.run((), world);
             node.system.apply(world);
         }
     }

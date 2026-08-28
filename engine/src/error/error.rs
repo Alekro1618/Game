@@ -1,5 +1,5 @@
-use std::fmt;
 use std::backtrace::Backtrace;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Error {
@@ -16,6 +16,7 @@ pub enum ErrorKind {
     IO,
     System,
     Validation,
+    Unsupported,
     UI,
     ECS,
 }

@@ -1,12 +1,15 @@
-use crate::{ecs::{archetype::ArchetypeId, entities::id::EntityId}, error::error::{Error, ErrorKind}};
-use std::{hash::Hash};
+use crate::{
+    ecs::{archetype::ArchetypeId, entities::id::EntityId},
+    error::error::{Error, ErrorKind},
+};
+use std::hash::Hash;
 
-pub mod id;
 mod hash;
+pub mod id;
 pub use hash::*;
 
 pub struct Entity {
-    id: EntityId
+    id: EntityId,
 }
 
 impl PartialEq for Entity {
@@ -41,9 +44,7 @@ impl Hash for Entity {
 
 impl Entity {
     #[inline(always)]
-    pub const fn from_id(
-        id: EntityId
-    ) -> Entity {
+    pub const fn from_id(id: EntityId) -> Entity {
         Self { id }
     }
 
@@ -64,7 +65,6 @@ impl Entity {
     pub const fn id(self) -> EntityId {
         self.id
     }
-
 }
 
 #[derive(Debug, Default)]
@@ -89,8 +89,6 @@ impl EntityAllocator {
     }
 }
 
-
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     pub archetype_id: ArchetypeId,
@@ -107,16 +105,16 @@ struct EntityMeta {
 
 impl EntityMeta {
     const FRESH: EntityMeta = EntityMeta {
-            generation: 0,
-            location: None,
-            spawned: false
+        generation: 0,
+        location: None,
+        spawned: false,
     };
 
-    pub fn new_no_location(generation : u32, spawned : bool) -> Self {
+    pub fn new_no_location(generation: u32, spawned: bool) -> Self {
         Self {
             generation,
             location: None,
-            spawned
+            spawned,
         }
     }
 }
@@ -128,19 +126,23 @@ pub struct Entities {
 }
 impl Entities {
     pub fn new() -> Self {
-        Self { meta: Vec::new(), count: 0 }
+        Self {
+            meta: Vec::new(),
+            count: 0,
+        }
     }
 
     pub fn alloc(&mut self, index: u32, generation: u32) {
         let idx = index as usize;
         if idx >= self.meta.len() {
-            self.meta.resize(idx + 1, EntityMeta::new_no_location(0, false));
+            self.meta
+                .resize(idx + 1, EntityMeta::new_no_location(0, false));
         }
         self.meta[idx] = EntityMeta::new_no_location(generation, true);
         self.count += 1;
     }
 
-    pub fn set_location(&mut self, entity: EntityId, location : EntityLocation) {
+    pub fn set_location(&mut self, entity: EntityId, location: EntityLocation) {
         self.meta[entity.id() as usize].location = Some(location);
     }
 
@@ -164,9 +166,7 @@ impl Entities {
         };
 
         meta.location
-            .ok_or(
-                Error::new(ErrorKind::ECS, "Valid entity but not spawned")
-            )
+            .ok_or(Error::new(ErrorKind::ECS, "Valid entity but not spawned"))
     }
 
     pub fn is_alive(&self, entity: EntityId) -> bool {
@@ -188,4 +188,3 @@ impl Entities {
         self.count == 0
     }
 }
-

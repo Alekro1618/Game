@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt::{Display, Pointer}};
 
 use bitmap::Bitmap;
-use bitvec::vec::BitVec;
-use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, systems::{function_system::{F1, F2}, query::Query}}, error::error::{Error, ErrorKind}, math::{transform::{self, Transform}, vec::Vec2}};
+use bitvec::vec::{self, BitVec};
+use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, systems::{ query::Query}}, error::error::{Error, ErrorKind}, math::{transform::{self, Transform}, vec::Vec2}, render::color::Color};
 use engine_macros::{Component, Resource};
 
 #[derive(Clone, Copy, Eq, Hash)]
@@ -87,6 +87,39 @@ pub enum SpecialKeys {
     ServicePlace
 }
 
+pub struct GridParams {
+    position : Vec2,
+    dx : f32,
+    dy : f32,
+    angle : f32,
+    center : Vec2,
+    distance : f32
+}
+
+impl GridParams {
+    pub fn new(position : Vec2, dx : f32, dy : f32, angle : f32, center : Vec2, distance : f32) -> Self {
+        Self { position, dx, dy, angle, center, distance }
+    }
+
+    pub fn get_vectors(self, height : usize, width : usize) -> Vec<Vec2> {
+        let mut vectors = Vec::with_capacity(width * height);
+        for j in 0..height {
+            for i in 0..width {
+                let x = i as f32 * self.dx + self.position.x;
+                let y= j as f32 * self.dy + self.position.y;
+                
+                let vx = self.distance * ( x - self.center.x) / (y * self.angle.sin() + self.distance) + self.center.x;
+                let vy = self.distance * ( y * self.angle.cos() - self.center.y) / (y * self.angle.sin() + self.distance) + self.center.y;
+                vectors.insert(i + j * height, Vec2 {
+                    x: vx,
+                    y: vy
+                });
+            }
+        }
+        vectors
+    }
+}
+
 
 
 #[derive(Resource)]
@@ -94,10 +127,6 @@ pub struct Grid {
     width : usize,
     height : usize,
     maps: HashMap<GridName, BitVec>,
-    position : Vec2,
-    rotation : f32,
-    dx : f32,
-    dy : f32,
     vectors : Vec<Vec2>,
     specials : HashMap<SpecialKeys, Point>
 }
@@ -108,10 +137,6 @@ impl Default for Grid {
             width: Default::default(),
             height: Default::default(),
             maps: Default::default(),
-            position: Default::default(),
-            rotation: Default::default(),
-            dx: Default::default(), 
-            dy: Default::default(),
             vectors: Vec::with_capacity(0),
             specials: Default::default()}
     }
@@ -119,28 +144,17 @@ impl Default for Grid {
 
 impl Grid  {
     #[inline]
-    pub fn new(width : usize, height : usize, dx : f32, dy: f32) -> Self {
-        Self::from(width, height, Vec2::ZERO, 0.0, dx, dy)
+    pub fn new(width : usize, height : usize, params : GridParams) -> Self {
+        Self::from(width, height, params)
     }
 
-    pub fn from(width : usize, height : usize, position : Vec2, rotation : f32, dx : f32, dy : f32) -> Self {
-        let mut vectors = Vec::with_capacity(width * height);
-        for j in 0..height {
-            for i in 0..width {
-                vectors.insert(i + j * height, Vec2 {
-                    x: i as f32 * dx + position.x,
-                    y: j as f32 * dy + position.y
-                });
-            }
-        }
+    pub fn from(width : usize, height : usize, params : GridParams) -> Self {
+        let vectors = params.get_vectors(height, width);
+
         Self { 
             width,
             height,
             maps: HashMap::new(),
-            position, 
-            rotation, 
-            dx, 
-            dy,
             vectors,
             specials: HashMap::new()
         }
@@ -196,25 +210,6 @@ impl Grid  {
         let start = self.to_vec(a);
         let end = self.to_vec(b);
         start.lerp(end, time)
-    }
-
-    #[inline]
-    pub fn what_cell(&self, point : Vec2) -> Point {
-        let mut actual = point - self.position;
-        actual.x /= self.dx;
-        actual.y /= self.dy;
-        let x = actual.x.floor() as usize;
-        let y = actual.y.floor() as usize;
-
-        Point { x, y, value: None }
-    }
-
-    pub fn in_cell(&self, point : Vec2, cell : impl Into<Point>) -> bool {
-        self.what_cell(point) == cell.into()
-    }
-
-    pub fn same_cell(&self, a : Vec2, b : Vec2) -> bool {
-        self.what_cell(a) == self.what_cell(b)
     }
 
     pub fn get_point<'a>(&self, label : GridName, point : impl Into<Point>) -> Point {
@@ -304,12 +299,6 @@ pub fn smooth_point_to_transform(query : Query<(&mut Transform, &SmoothToGrid)>,
     }
 }
 
-pub fn transform_to_point(query : Query<(&Transform, &mut LockToGrid)>, grid : &Grid) {
-    for (transform, mut lock_to_grid) in query {
-        lock_to_grid.position = grid.what_cell(transform.position);
-    }
-}
-
 pub fn update_grid(mut grid : Mut<'_, Grid>, query_lock : Query<&LockToGrid>, query_smooth : Query<&SmoothToGrid>) {
     grid.clear();
     for point in query_lock {
@@ -321,3 +310,23 @@ pub fn update_grid(mut grid : Mut<'_, Grid>, query_lock : Query<&LockToGrid>, qu
     }
 }
 
+pub fn draw_grid(grid : &Grid) {
+    for i in 0..grid.width {
+        let mut last_point = grid.to_vec((i, 0));
+        for j in 1..grid.height {
+            let current = grid.to_vec((i, j));
+            macroquad::shapes::draw_line(last_point.x, last_point.y, current.x, current.y, 10., macroquad::color::Color::new(1., 1., 1., 1.));
+            last_point = current;
+        }
+    }
+
+    for j in 0..grid.height {
+        let mut last_point = grid.to_vec((0, j));
+        for i in 1..grid.width {
+            let current = grid.to_vec((i, j));
+            macroquad::shapes::draw_line(last_point.x, last_point.y, current.x, current.y, 10., macroquad::color::Color::new(1., 1., 1., 1.));
+            last_point = current;
+        }
+    }
+   
+}

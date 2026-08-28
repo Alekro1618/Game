@@ -4,7 +4,7 @@ use crate::ecs::message::{Message, MessageInstance};
 
 #[derive(Debug)]
 pub struct MessageIterator<'a, M: Message> {
-    pub(crate) iter: Iter<'a, MessageInstance<M>>
+    pub(crate) iter: Iter<'a, MessageInstance<M>>,
 }
 
 impl<'a, M: Message> Iterator for MessageIterator<'a, M> {

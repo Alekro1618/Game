@@ -1,11 +1,38 @@
-use std::{any::TypeId, collections::HashSet, sync::atomic::AtomicU32};
+use std::{any::TypeId, sync::atomic::AtomicU32};
 
-use downcast_rs::Downcast;
-use macroquad::prelude::warn;
 
-use crate::{app::main_schedule::ScheduleLabel, ecs::{archetype::{Archetype, ArchetypeId, Archetypes}, bundle::{Bundle, info::Bundles}, change_detection::{params::Mut, tick::Tick}, components::{Component, id::{ComponentId, ComponentIdsArray}, info::{ComponentDescriptor, Components}, register::{ComponentIds, ComponentsRegistrator}}, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, event::{Event, EventWrapperComponent}, lifecycle::RemovedComponentMessages, message::{Message, messages::Messages}, observer::{centralized_storage::Observers, distributed_storage::{IntoObserver, Observer}}, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::{commands::command::CommandQueue, observer_system::{IntoObserverSystem, ObserverSystem}, system}, worlds::id::WorldId}, error::error::{Error, ErrorKind}};
-mod id;
+use crate::{
+    app::main_schedule::ScheduleLabel,
+    ecs::{
+        archetype::{Archetype, ArchetypeId, Archetypes},
+        bundle::{Bundle, info::Bundles},
+        change_detection::{params::Mut, tick::Tick},
+        components::{
+            Component,
+            id::{ComponentId, ComponentIdsArray},
+            info::{ComponentDescriptor, Components},
+            register::{ComponentIds, ComponentsRegistrator},
+        },
+        entities::{Entities, EntityAllocator, EntityLocation, id::EntityId},
+        event::Event,
+        lifecycle::RemovedComponentMessages,
+        message::{Message, messages::Messages},
+        observer::centralized_storage::Observers,
+        query::{fetch::QueryData, filter::QueryFilter, state::QueryState},
+        resource::{Resource, ResourceEntities},
+        schedule::schedule::{Schedule, Schedules},
+        storage::{Storages, TableBuilder},
+        systems::{
+            commands::command::CommandQueue,
+            observer_system::IntoObserverSystem,
+        },
+        worlds::{entity_ref::EntityMutRef, id::WorldId},
+    },
+    error::error::{Error, ErrorKind},
+};
 pub mod assert;
+pub mod entity_ref;
+mod id;
 pub mod log;
 
 pub struct World {
@@ -24,7 +51,7 @@ pub struct World {
     pub last_change_tick: Tick,
     pub last_check_tick: Tick,
     pub command_queue: CommandQueue,
-    pub last_trigger_id: u32
+    pub last_trigger_id: u32,
 }
 impl Default for World {
     fn default() -> Self {
@@ -58,7 +85,6 @@ impl Drop for World {
 }
 
 impl World {
-
     #[inline]
     fn bootstrap(&mut self) {
         // self.register_event_key::<Add>(); TODO
@@ -103,12 +129,12 @@ impl World {
     #[inline]
     pub fn observers(&self) -> &Observers {
         &self.observes
-    } 
+    }
 
     #[inline]
     pub fn last_trigger_id(&self) -> u32 {
         self.last_trigger_id
-    } 
+    }
 
     #[inline]
     pub fn entity_count(&self) -> u32 {
@@ -140,9 +166,7 @@ impl World {
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
-            None => panic!(
-                "Requested resource does not exist in the `World`"
-            ),
+            None => panic!("Requested resource does not exist in the `World`"),
         }
     }
 
@@ -190,7 +214,10 @@ impl World {
     //     self.components.get_hooks_mut(id)
     // }
 
-    pub fn add_observer<E : Event, M>(&mut self, observer: impl IntoObserverSystem<E, M>) -> &mut Self {
+    pub fn add_observer<E: Event, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, M>,
+    ) -> &mut Self {
         let system = IntoObserverSystem::into_system(observer);
         self.observes.register::<E>(system);
         self
@@ -210,30 +237,19 @@ impl World {
     }
 
     pub fn get_component<T: Component>(&self, entity: EntityId) -> Option<&T> {
-        if !self.entities.is_alive(entity) {
-            return None;
-        }
-
         let comp_id = self.component_id::<T>()?;
-        let archetype_id = self.entities.get_spawned(entity).ok()?.archetype_id;
-        let archetype = self.archetypes.get(archetype_id)?;
+        let archetype = self.get_archetype(entity)?;
 
         let &row = archetype.row(entity)?;
         let table = &self.storages.tables[archetype.table_id() as usize];
 
         //Safety: ComponentId is correct and since we take row from archetype we are in bounds.
-        unsafe {
-            table.get(comp_id, row as usize)
-        }
+        unsafe { table.get(comp_id, row as usize) }
     }
 
     pub fn get_archetype(&self, entity: EntityId) -> Option<&Archetype> {
-        if !self.entities.is_alive(entity) {
-            return None;
-        }
-
         let archetype_id = self.entities.get_spawned(entity).ok()?.archetype_id;
-        self.archetypes.get(archetype_id)
+        Some(self.archetypes.get(archetype_id))
     }
 
     pub fn get_component_mut<T: Component>(&mut self, entity: EntityId) -> Option<&mut T> {
@@ -243,17 +259,14 @@ impl World {
 
         let comp_id = self.component_id::<T>()?;
         let archetype_id = self.entities.get_spawned(entity).ok()?.archetype_id;
-        let archetype = self.archetypes.get(archetype_id)?;
+        let archetype = self.archetypes.get(archetype_id);
 
         let &row = archetype.row(entity)?;
         let table = &mut self.storages.tables[archetype.table_id() as usize];
 
         //Safety: ComponentId is correct and since we take row from archetype we are in bounds.
-        unsafe {
-            table.get_mut(comp_id, row as usize)
-        }
+        unsafe { table.get_mut(comp_id, row as usize) }
     }
-
 
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityId {
         let entity = self.entity_allocator.allocate();
@@ -265,53 +278,52 @@ impl World {
     pub fn despawn(&mut self, entity: EntityId) {
         let location = self.entities.get_spawned(entity).unwrap();
         if self.entities.free(entity) {
+            self.entity_allocator.free(entity);
             self.despawn_unchecked(entity, location)
         }
     }
 
-    pub fn despawn_unchecked(&mut self, entity: EntityId, location : EntityLocation) {
+    pub fn despawn_unchecked(&mut self, entity: EntityId, location: EntityLocation) {
         let change_tick = self.change_tick();
 
-        let table = self.storages.get_table_mut(location.table_id as usize).unwrap();
+        let table = self
+            .storages
+            .get_table_mut(location.table_id as usize)
+            .unwrap();
         let _ = table.remove_entity(location.table_row as usize);
+        let _ = table.remove_whole_row(location.table_row as usize, change_tick);
 
         let (last_entity, last_row) = self
             .archetypes
             .get_mut(location.archetype_id)
-            .unwrap()
             .swap_remove(entity, location.table_row);
-        
+
         //set entity replaced by moved location
         if let Some(last_entity_id) = last_entity {
             self.entities.set_location(
-                last_entity_id, 
-                EntityLocation { 
-                    archetype_id: location.archetype_id, 
-                    table_id: location.table_id, 
-                    table_row: last_row
-                }
+                last_entity_id,
+                EntityLocation {
+                    archetype_id: location.archetype_id,
+                    table_id: location.table_id,
+                    table_row: last_row,
+                },
             );
         }
     }
 
-    pub fn insert<B: Bundle>(
-        &mut self,
-        entity_id: EntityId,
-        bundle : B
-    )  {
+    pub fn insert<B: Bundle>(&mut self, entity_id: EntityId, bundle: B) -> EntityLocation {
         let change_tick = self.change_tick();
-        let component_ids : ComponentIdsArray   
-            = B::component_ids(&mut self.components_registrator())
-            .collect();
+        let component_ids: ComponentIdsArray =
+            B::component_ids(&mut self.components_registrator()).collect();
         let old_component_ids = component_ids.clone();
 
         let old_location = self.get_entity(entity_id).unwrap();
         let old_row: u32 = old_location.table_row;
-        let old_archetype = self.archetypes.get(old_location.archetype_id).unwrap();
+        let old_archetype = self.archetypes.get(old_location.archetype_id);
         if old_archetype.contains_all(component_ids.ids()) {
             let table = &mut self.storages.tables[old_location.table_id as usize];
             bundle.replace_in_table(&old_component_ids, table, old_row as usize, change_tick);
-            return;
+            return old_location;
         };
 
         let mut new_component_ids = old_archetype.archetype_components().clone();
@@ -320,25 +332,22 @@ impl World {
 
         let new_archetype_id = self.get_or_create_archetype(new_component_ids);
 
-        let new_archetype = self.archetypes.get_mut(new_archetype_id).unwrap();
+        let new_archetype = self.archetypes.get_mut(new_archetype_id);
 
-
-        let [old_table, new_table] 
-            = self.storages.get_disjoint_table_mut(
-                [
-                        old_location.table_id as usize, 
-                        new_archetype.table_id() as usize
-                    ]
-                )
-                .unwrap();
+        let [old_table, new_table] = self
+            .storages
+            .get_disjoint_table_mut([
+                old_location.table_id as usize,
+                new_archetype.table_id() as usize,
+            ])
+            .unwrap();
         let _ = old_table.remove_entity(old_row as usize);
-
 
         let row = new_table.add_entity(entity_id);
         let new_location = new_archetype.insert(entity_id, row as u32);
 
         unsafe {
-            old_table.move_to(old_row as usize,  new_table , change_tick);
+            old_table.move_to(old_row as usize, new_table, change_tick);
         }
 
         bundle.insert_into_table(&old_component_ids, new_table, change_tick);
@@ -346,126 +355,120 @@ impl World {
         let (last_entity, last_row) = self
             .archetypes
             .get_mut(old_location.archetype_id)
-            .unwrap()
             .swap_remove(entity_id, old_location.table_row);
-        
+
         //set entity replaced by moved location
         if let Some(entity) = last_entity {
             self.entities.set_location(
-                entity, 
-                EntityLocation { 
-                    archetype_id: old_location.archetype_id, 
-                    table_id: old_location.table_id, 
-                    table_row: last_row
-                }
+                entity,
+                EntityLocation {
+                    archetype_id: old_location.archetype_id,
+                    table_id: old_location.table_id,
+                    table_row: last_row,
+                },
             );
         }
-        
+
         //set moved entity location
         self.entities.set_location(entity_id, new_location);
         self.bundles.register();
+        new_location
     }
 
-    pub fn remove<B: Bundle>(&mut self, entity_id: EntityId){
+    pub fn remove<B: Bundle>(&mut self, entity_id: EntityId) {
         let change_tick = self.change_tick();
-        let to_remove_component_ids : ComponentIdsArray   
-            = B::component_ids(&mut self.components_registrator())
-            .collect();
+        let to_remove_component_ids: ComponentIdsArray =
+            B::component_ids(&mut self.components_registrator()).collect();
 
         let old_location = self.get_entity(entity_id).unwrap();
-        let old_archetype = self.archetypes.get(old_location.archetype_id).unwrap();
+        let old_archetype = self.archetypes.get(old_location.archetype_id);
         if !old_archetype.contains_any(to_remove_component_ids.ids()) {
             return;
         };
 
         let mut new_component_ids = Vec::new();
-        
+
         for &component_id in old_archetype.archetype_components() {
             if !to_remove_component_ids.contains(component_id) {
                 new_component_ids.push(component_id);
             }
         }
 
-        new_component_ids.sort(); //REDO:
+        new_component_ids.sort(); //TODO:REDO:
 
         let new_archetype_id = self.get_or_create_archetype(new_component_ids);
-        let new_archetype = self.archetypes.get_mut(new_archetype_id).unwrap();
+        let new_archetype = self.archetypes.get_mut(new_archetype_id);
 
-        let [old_table, new_table] 
-            = self.storages.get_disjoint_table_mut(
-                [
-                        old_location.table_id as usize, 
-                        new_archetype.table_id() as usize
-                    ]
-                )
-                .unwrap();
+        let [old_table, new_table] = self
+            .storages
+            .get_disjoint_table_mut([
+                old_location.table_id as usize,
+                new_archetype.table_id() as usize,
+            ])
+            .unwrap();
         let _ = old_table.remove_entity(old_location.table_row as usize);
 
         let row = new_table.add_entity(entity_id);
         let new_location = new_archetype.insert(entity_id, row as u32);
 
         unsafe {
-            old_table.move_to(old_location.table_row as usize,  new_table , change_tick);
+            old_table.move_to(old_location.table_row as usize, new_table, change_tick);
         }
 
-        B::remove_from_table(&to_remove_component_ids, old_table, old_location.table_row as usize, change_tick);
+        B::remove_from_table(
+            &to_remove_component_ids,
+            old_table,
+            old_location.table_row as usize,
+            change_tick,
+        );
 
         let (last_entity, last_row) = self
             .archetypes
             .get_mut(old_location.archetype_id)
-            .unwrap()
             .swap_remove(entity_id, old_location.table_row);
-        
+
         //set entity replaced by moved location
         if let Some(entity) = last_entity {
             self.entities.set_location(
-                entity, 
-                EntityLocation { 
-                    archetype_id: old_location.archetype_id, 
-                    table_id: old_location.table_id, 
-                    table_row: last_row
-                }
+                entity,
+                EntityLocation {
+                    archetype_id: old_location.archetype_id,
+                    table_id: old_location.table_id,
+                    table_row: last_row,
+                },
             );
         }
-        
+
         self.entities.set_location(entity_id, new_location);
         self.bundles.register();
     }
 
-    
-    pub fn spawn_at_unchecked<B: Bundle>(
-        &mut self,
-        entity_id: EntityId,
-        bundle: B,
-    ) -> EntityId {
+    pub fn spawn_at_unchecked<B: Bundle>(&mut self, entity_id: EntityId, bundle: B) -> EntityId {
         let change_tick = self.change_tick();
-        let component_ids: ComponentIdsArray 
-            = B::component_ids(&mut self.components_registrator())
-            .collect();
+        let component_ids: ComponentIdsArray =
+            B::component_ids(&mut self.components_registrator()).collect();
 
         let mut current_component_ids = component_ids.ids().clone();
         current_component_ids.sort(); //REDO
 
         let archetype_id = self.get_or_create_archetype(current_component_ids);
 
-        let archetype = self.archetypes.get_mut(archetype_id).unwrap();
+        let archetype = self.archetypes.get_mut(archetype_id);
         let table = &mut self.storages.tables[archetype.table_id() as usize];
 
         let row = table.add_entity(entity_id);
 
-        
-
         let location = archetype.insert(entity_id, row as u32);
-        
+
         self.entities.set_location(entity_id, location);
-        
+
         bundle.insert_into_table(&component_ids, table, change_tick);
         self.bundles.register();
 
         entity_id
     }
 
-    pub fn get_or_create_archetype(&mut self, component_ids : Vec<ComponentId>) -> ArchetypeId {
+    pub fn get_or_create_archetype(&mut self, component_ids: Vec<ComponentId>) -> ArchetypeId {
         let table_components = component_ids.clone();
         if let Some(archetype_id) = self.archetypes.get_id(component_ids) {
             archetype_id
@@ -488,7 +491,7 @@ impl World {
         self.last_change_tick
     }
 
-     #[inline]
+    #[inline]
     pub fn last_check_tick(&mut self) -> Tick {
         self.last_check_tick
     }
@@ -504,7 +507,6 @@ impl World {
         self.query_filtered::<D, ()>()
     }
 
-
     #[inline]
     pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
@@ -514,21 +516,35 @@ impl World {
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components().get_id(TypeId::of::<R>())?;
 
-        self
-            .resource_entities
-            .get::<R>(component_id)
-
+        self.resource_entities.get::<R>(component_id)
     }
 
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         let component_id = self.components().get_id(TypeId::of::<R>())?;
 
-        self
-            .resource_entities
+        self.resource_entities
             .get_mut::<R>(component_id)
-            .map(|r| Mut { value: r})
+            .map(|r| Mut { value: r })
+    }
 
+    #[inline]
+    pub fn get_or_init_resource<R: Resource + Default>(&mut self) -> &R {
+        let component_id = self.register_resource::<R>();
+
+        if !self.resource_entities().contains::<R>(component_id) {
+            self.insert_resource(R::default());
+        }
+
+        self.get_resource::<R>().unwrap()
+    }
+
+    pub fn resource_scope<R: Resource>(&mut self, fun: impl FnOnce(&mut World, &mut R) -> ()) {
+        let mut resource = self.remove_resource::<R>().unwrap();
+
+        fun(self, &mut resource);
+
+        self.insert_resource(resource);
     }
 
     pub fn init_resource<R: Resource + Default>(&mut self) {
@@ -539,10 +555,16 @@ impl World {
         }
     }
 
-    pub fn insert_resource<R: Resource>(&mut self, value: R) {
+    pub fn insert_resource<R: Resource>(&mut self, value: R) -> ComponentId {
         let component_id = self.register_resource::<R>();
 
         self.resource_entities.insert(component_id, value);
+        component_id
+    }
+
+    pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
+        let component_id = self.components().get_id(TypeId::of::<R>()).unwrap();
+        self.resource_entities.remove::<R>(component_id)
     }
 
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
@@ -555,32 +577,37 @@ impl World {
     }
 
     pub fn schedult_scope<R>(
-        &mut self, 
-        label: ScheduleLabel, 
-        f: impl FnOnce(&mut World, &mut Schedule) -> R
+        &mut self,
+        label: ScheduleLabel,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, Error> {
-        let Some(mut schedules) = self
-            .get_resource_mut::<Schedules>()
-        else {
+        let Some(mut schedules) = self.get_resource_mut::<Schedules>() else {
             return Err(Error::new(ErrorKind::ECS, "Error while getting schedules"));
         };
 
-        let Some(mut schedule) = schedules.remove(label)
-        else {
-            return Err(Error::new(ErrorKind::ECS, "Error while trying to run schedule"));
+        let Some(mut schedule) = schedules.remove(label) else {
+            return Err(Error::new(
+                ErrorKind::ECS,
+                "Error while trying to run schedule",
+            ));
         };
 
         let value = f(self, &mut schedule);
 
-        let old = self.get_resource_mut::<Schedules>().unwrap().insert(schedule);
+        let old = self
+            .get_resource_mut::<Schedules>()
+            .unwrap()
+            .insert(schedule);
         if old.is_some() {
-            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
+            println!(
+                "Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten"
+            );
         }
 
         Ok(value)
     }
 
-    pub fn add_message<M : Message>(&mut self) {
+    pub fn add_message<M: Message>(&mut self) {
         self.insert_resource(Messages::<M>::default());
     }
 
@@ -588,24 +615,31 @@ impl World {
         self.last_trigger_id += 1;
     }
 
-    pub fn trigger_ref<'a, E: Event>(
-        &mut self,
-        event: &mut E,
-    ) {
+    pub fn trigger_ref<'a, E: Event>(&mut self, event: &mut E) {
         unsafe {
-            self.trigger_raw( event );
+            self.trigger_raw(event);
         }
     }
 
+    pub fn entity<'w>(&'w mut self, entity: EntityId) -> EntityMutRef<'w> {
+        let location = self.entities.get_spawned(entity).unwrap();
+        let row = unsafe {
+            self.storages
+                .get_table_mut(location.table_id as usize)
+                .unwrap()
+                .get_row_mut(location.table_row as usize)
+                .unwrap()
+        };
+
+        EntityMutRef::new(&self.components, entity, location, row)
+    }
+
     #[inline]
-    pub unsafe fn trigger_raw<'a, E: Event>(
-        &mut self,
-        event: &mut E,
-    ) {
+    pub unsafe fn trigger_raw<'a, E: Event>(&mut self, event: &mut E) {
         if let Some(observer) = self.observes.remove::<E>() {
             (observer.observer_function())(self, event as *mut E as *mut u8);
             self.observes.insert::<E>(observer);
-        } 
+        }
     }
 
     #[inline]
@@ -615,7 +649,6 @@ impl World {
         command_queue.apply(self);
     }
 }
-
 
 unsafe impl Send for World {}
 unsafe impl Sync for World {}
@@ -635,13 +668,23 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use std::{fmt::Display, vec};
 
-use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::EntityId, query::filter::{With, Without}, systems::commands::{Commands, command::CommandQueue}, worlds::{World, log::print_component_of}};
+    use crate::ecs::{
+        change_detection::tick::Tick,
+        components::{Component, Mutable, StorageType},
+        entities::id::EntityId,
+        query::filter::{With, Without},
+        systems::{
+            commands::{Commands, command::CommandQueue},
+            query::Query,
+        },
+        worlds::{World, log::print_component_of},
+    };
 
     #[derive(PartialEq, Eq, Debug)]
     pub struct A;
     impl Component for A {
         const STORAGE_TYPE: StorageType = StorageType::Table;
-    
+
         type Mutability = Mutable;
     }
 
@@ -649,7 +692,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     pub struct B;
     impl Component for B {
         const STORAGE_TYPE: StorageType = StorageType::Table;
-    
+
         type Mutability = Mutable;
     }
 
@@ -657,7 +700,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     pub struct C;
     impl Component for C {
         const STORAGE_TYPE: StorageType = StorageType::Table;
-    
+
         type Mutability = Mutable;
     }
 
@@ -665,7 +708,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     pub struct T(u32);
     impl Component for T {
         const STORAGE_TYPE: StorageType = StorageType::Table;
-    
+
         type Mutability = Mutable;
     }
 
@@ -673,7 +716,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     pub struct D(Vec<u32>);
     impl Component for D {
         const STORAGE_TYPE: StorageType = StorageType::Table;
-    
+
         type Mutability = Mutable;
     }
 
@@ -696,7 +739,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     #[test]
     fn test_spawn_entity_world() {
         let mut world = World::new();
-    
+
         let entity = world.spawn((A, B, C, T(1)));
 
         let a = world.get_component::<A>(entity);
@@ -713,7 +756,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     #[test]
     fn test_spawn_entity_and_insert_world() {
         let mut world = World::new();
-    
+
         let entity = world.spawn((A, T(1)));
 
         //Replace with new
@@ -729,17 +772,17 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
         assert_eq!(t, Some(&T(4)));
     }
 
-     #[test]
+    #[test]
     fn test_spawn_entity_and_remove_world() {
         let mut world = World::new();
-    
+
         let entity = world.spawn((A, T(1)));
 
         //Remove non-existing
-        world.remove::<(C, )>(entity);
+        world.remove::<(C,)>(entity);
 
         //Remove existing
-        world.remove::<(A, )>(entity);
+        world.remove::<(A,)>(entity);
 
         let a = world.get_component::<A>(entity);
         let t = world.get_component::<T>(entity);
@@ -751,7 +794,7 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
     #[test]
     fn test_spawn_and_edit_entity_vec_world() {
         let mut world = World::new();
-    
+
         let entity = world.spawn((A, T(1)));
         let entity2 = world.spawn((A, D(vec![3, 4, 5, 7, 8, 9])));
 
@@ -764,17 +807,17 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
         if let Some(d) = world.get_component_mut::<D>(entity) {
             d.0.push(10);
         }
-        
+
         if let Some(d) = world.get_component_mut::<D>(entity2) {
             d.0.push(10);
         }
-    
+
         let d = world.get_component::<D>(entity);
         let d1 = world.get_component::<D>(entity2);
 
         assert_eq!(d, Some(&D(vec![3, 4, 5, 7, 8, 9, 10])));
         assert_eq!(d1, Some(&D(vec![3, 4, 5, 7, 8, 9, 10])))
-    }   
+    }
 
     #[test]
     fn test_archetype_movement_world() {
@@ -786,49 +829,53 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
         let mut flipper1 = false;
         let mut flipper2 = false;
 
+        let mut entity_ref = world.entity(entity);
+        let t = entity_ref.get_mut::<T>();
+        let a = entity_ref.get_mut::<A>();
+
         for i in 1..10 {
             if let Some(c) = world.get_component::<C>(entity) {
-                world.insert(entity, (A, ));
-                world.remove::<(C, )>(entity);
-                world.remove::<(T, )>(entity);
+                world.insert(entity, (A,));
+                world.remove::<(C,)>(entity);
+                world.remove::<(T,)>(entity);
             }
 
             if let Some(c) = world.get_component::<C>(entity2) {
-                world.insert(entity2, (A, ));
-                world.remove::<(C, )>(entity2);
-                world.remove::<(T, )>(entity2);
+                world.insert(entity2, (A,));
+                world.remove::<(C,)>(entity2);
+                world.remove::<(T,)>(entity2);
             }
 
             if let Some(b) = world.get_component::<B>(entity) {
-                world.insert(entity, (C, ));
-                world.remove::<(B, )>(entity);
+                world.insert(entity, (C,));
+                world.remove::<(B,)>(entity);
             }
 
             if let Some(b) = world.get_component::<B>(entity2) {
-                world.insert(entity2, (C, ));
-                world.remove::<(B, )>(entity2);
+                world.insert(entity2, (C,));
+                world.remove::<(B,)>(entity2);
             }
 
             if let Some(_) = world.get_component::<A>(entity) {
                 if flipper1 {
-                    world.insert(entity, (B, ));
-                    world.insert(entity, (T(1), ));
+                    world.insert(entity, (B,));
+                    world.insert(entity, (T(1),));
                 } else {
-                    world.insert(entity, (C, ));
+                    world.insert(entity, (C,));
                 }
                 flipper1 = !flipper1;
-                world.remove::<(A, )>(entity);
+                world.remove::<(A,)>(entity);
             }
 
             if let Some(_) = world.get_component::<A>(entity2) {
                 if flipper2 {
-                    world.insert(entity2, (B, ));
-                    world.insert(entity2, (T(1), ));
+                    world.insert(entity2, (B,));
+                    world.insert(entity2, (T(1),));
                 } else {
-                    world.insert(entity2, (C, ));
+                    world.insert(entity2, (C,));
                 }
                 flipper2 = !flipper2;
-                world.remove::<(A, )>(entity2);
+                world.remove::<(A,)>(entity2);
             }
 
             if let Some(t) = world.get_component_mut::<T>(entity) {
@@ -839,11 +886,11 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
                 t.0 += 1;
             }
         }
-        
+
         assert_eq!(world.archetypes.len(), 10);
         assert_eq!(world.get_component::<T>(entity), Some(&T(3)));
         assert_eq!(world.get_component::<T>(entity2), Some(&T(3)));
-    }   
+    }
 
     #[test]
     fn test_query() {
@@ -868,9 +915,9 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
             for (entity, mut d) in query.iter(&mut world) {
                 assert!(d.0.len() > 0);
                 d.0.pop();
-                command.add(entity, (A, ));
+                command.add(entity, (A,));
             }
-            
+
             command.log("after");
             command.log_component::<D>(e3);
 
@@ -879,9 +926,11 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
 
         assert_eq!(world.get_component::<D>(e1), Some(&D(vec![1])));
         assert_eq!(world.get_component::<D>(e2), Some(&D(vec![5])));
-        assert_eq!(world.get_component::<D>(e3), Some(&D(vec![5, 4, 3, 2, 1, 5])));
+        assert_eq!(
+            world.get_component::<D>(e3),
+            Some(&D(vec![5, 4, 3, 2, 1, 5]))
+        );
     }
-
 
     #[test]
     fn test_query_with_without() {
@@ -909,7 +958,52 @@ use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::En
         for (entity) in list_2 {
             assert_eq!(world.get_component::<C>(entity), None);
         }
+    }
 
-        
+    #[test]
+    fn test_option_query() {
+        let mut world = World::new();
+        let e1 = world.spawn((A, T(2)));
+        let e2 = world.spawn((A));
+        let e3 = world.spawn((A, T(4)));
+
+        let mut counter = 0;
+        let mut query = world.query::<(EntityId, &A, Option<&T>)>();
+        for (entity, a, t) in query.iter(&mut world) {
+            if let Some(t) = t {
+                counter += 1;
+                assert!(t.0 == 2 && entity == e1 || t.0 == 4 && entity == e3);
+            }
+        }
+        assert_eq!(counter, 2);
+    }
+
+    #[test]
+    fn test_multiple_same_component_reference() {
+        let mut world = World::new();
+        let e1 = world.spawn((T(1)));
+        let e2 = world.spawn((T(2)));
+        let e3 = world.spawn((T(3)));
+
+        let state = world.query::<(&T)>();
+        let tick = Tick::new(0);
+        let query = Query::new(&mut world, &state, tick, tick);
+        let a11 = query.get(e1).unwrap();
+        let a12 = query.get(e1).unwrap();
+        let a2 = query.get(e2).unwrap();
+        assert_eq!(a11, &T(1));
+        assert_eq!(a12, &T(1));
+        assert_eq!(a2, &T(2));
+    }
+
+    #[test]
+    fn test_spawn_despawn_spawn_replace() {
+        let mut world = World::new();
+        let c = world.register_component::<T>();
+        let e1 = world.spawn(T(1));
+        world.despawn(e1);
+        let e2 = world.spawn(T(2));
+        let t = world.get_component::<T>(e2).unwrap();
+        assert_eq!(t.0, 2)
     }
 }

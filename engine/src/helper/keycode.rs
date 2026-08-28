@@ -2,21 +2,21 @@ impl Into<crate::input::keyboard::KeyCode> for macroquad::input::KeyCode {
     fn into(self) -> crate::input::keyboard::KeyCode {
         match self {
             macroquad::input::KeyCode::Space => crate::input::keyboard::KeyCode::Space,
-            macroquad::input::KeyCode::Apostrophe => crate::input::keyboard::KeyCode::Space,//TODO
+            macroquad::input::KeyCode::Apostrophe => crate::input::keyboard::KeyCode::Space, //TODO
             macroquad::input::KeyCode::Comma => crate::input::keyboard::KeyCode::Comma,
             macroquad::input::KeyCode::Minus => crate::input::keyboard::KeyCode::Minus,
             macroquad::input::KeyCode::Period => crate::input::keyboard::KeyCode::Period,
             macroquad::input::KeyCode::Slash => crate::input::keyboard::KeyCode::Slash,
-            macroquad::input::KeyCode::Key0 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key1 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key2 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key3 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key4 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key5 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key6 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key7 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key8 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::Key9 => crate::input::keyboard::KeyCode::Space,//TODO
+            macroquad::input::KeyCode::Key0 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key1 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key2 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key3 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key4 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key5 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key6 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key7 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key8 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::Key9 => crate::input::keyboard::KeyCode::Space, //TODO
             macroquad::input::KeyCode::Semicolon => crate::input::keyboard::KeyCode::Semicolon,
             macroquad::input::KeyCode::Equal => crate::input::keyboard::KeyCode::Equal,
             macroquad::input::KeyCode::A => crate::input::keyboard::KeyCode::KeyA,
@@ -47,10 +47,12 @@ impl Into<crate::input::keyboard::KeyCode> for macroquad::input::KeyCode {
             macroquad::input::KeyCode::Z => crate::input::keyboard::KeyCode::KeyZ,
             macroquad::input::KeyCode::LeftBracket => crate::input::keyboard::KeyCode::BracketLeft,
             macroquad::input::KeyCode::Backslash => crate::input::keyboard::KeyCode::Backslash,
-            macroquad::input::KeyCode::RightBracket => crate::input::keyboard::KeyCode::BracketRight,
-            macroquad::input::KeyCode::GraveAccent => crate::input::keyboard::KeyCode::Select,//TODO
-            macroquad::input::KeyCode::World1 => crate::input::keyboard::KeyCode::Space,//TODO
-            macroquad::input::KeyCode::World2 => crate::input::keyboard::KeyCode::Space,//TODO
+            macroquad::input::KeyCode::RightBracket => {
+                crate::input::keyboard::KeyCode::BracketRight
+            }
+            macroquad::input::KeyCode::GraveAccent => crate::input::keyboard::KeyCode::Select, //TODO
+            macroquad::input::KeyCode::World1 => crate::input::keyboard::KeyCode::Space, //TODO
+            macroquad::input::KeyCode::World2 => crate::input::keyboard::KeyCode::Space, //TODO
             macroquad::input::KeyCode::Escape => crate::input::keyboard::KeyCode::Escape,
             macroquad::input::KeyCode::Enter => crate::input::keyboard::KeyCode::Enter,
             macroquad::input::KeyCode::Tab => crate::input::keyboard::KeyCode::Tab,
@@ -117,12 +119,14 @@ impl Into<crate::input::keyboard::KeyCode> for macroquad::input::KeyCode {
             macroquad::input::KeyCode::LeftAlt => crate::input::keyboard::KeyCode::AltLeft,
             macroquad::input::KeyCode::LeftSuper => crate::input::keyboard::KeyCode::SuperLeft,
             macroquad::input::KeyCode::RightShift => crate::input::keyboard::KeyCode::ShiftRight,
-            macroquad::input::KeyCode::RightControl => crate::input::keyboard::KeyCode::ControlRight,
+            macroquad::input::KeyCode::RightControl => {
+                crate::input::keyboard::KeyCode::ControlRight
+            }
             macroquad::input::KeyCode::RightAlt => crate::input::keyboard::KeyCode::AltRight,
             macroquad::input::KeyCode::RightSuper => crate::input::keyboard::KeyCode::SuperRight,
-            macroquad::input::KeyCode::Menu => crate::input::keyboard::KeyCode::ContextMenu,//TODO
-            macroquad::input::KeyCode::Back => crate::input::keyboard::KeyCode::Backquote,//TODO
-            macroquad::input::KeyCode::Unknown => crate::input::keyboard::KeyCode::Space,//TODO
+            macroquad::input::KeyCode::Menu => crate::input::keyboard::KeyCode::ContextMenu, //TODO
+            macroquad::input::KeyCode::Back => crate::input::keyboard::KeyCode::Backquote,   //TODO
+            macroquad::input::KeyCode::Unknown => crate::input::keyboard::KeyCode::Space,    //TODO
         }
     }
 }

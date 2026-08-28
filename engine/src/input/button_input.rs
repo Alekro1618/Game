@@ -19,8 +19,6 @@ impl<T: Clone + Eq + Hash + Send + Sync + 'static> Component for ButtonInput<T> 
 
 impl<T: Clone + Eq + Hash + Send + Sync + 'static> Resource for ButtonInput<T> {}
 
-
-
 impl<T: Clone + Eq + Hash + Send + Sync + 'static> Default for ButtonInput<T> {
     fn default() -> Self {
         Self {
@@ -158,15 +156,15 @@ where
         self.just_released.iter()
     }
 
-    pub fn set_pressed(&mut self, set : HashSet<T>) {
+    pub fn set_pressed(&mut self, set: HashSet<T>) {
         self.pressed = set;
     }
 
-    pub fn set_just_pressed(&mut self, set : HashSet<T>) {
+    pub fn set_just_pressed(&mut self, set: HashSet<T>) {
         self.just_pressed = set;
     }
 
-    pub fn set_just_released(&mut self, set : HashSet<T>) {
+    pub fn set_just_released(&mut self, set: HashSet<T>) {
         self.just_released = set;
     }
 }

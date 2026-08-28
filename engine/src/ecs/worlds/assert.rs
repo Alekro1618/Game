@@ -1,9 +1,6 @@
 // src/ecs/testing/assert.rs
 
-use crate::ecs::{
-    components::Component,
-    entities::id::EntityId, worlds::World,
-};
+use crate::ecs::{components::Component, entities::id::EntityId, worlds::World};
 
 pub struct WorldAssert<'w> {
     world: &'w World,
@@ -19,7 +16,6 @@ impl World {
         WorldAssert { world: self }
     }
 }
-
 
 impl<'w> WorldAssert<'w> {
     pub fn entity_count(self, expected: u32) -> Self {
@@ -61,15 +57,15 @@ impl<'w> WorldAssert<'w> {
             self.world.entities().is_alive(entity),
             "entity {entity:?} does not exist"
         );
-        EntityAssert { world: self.world, entity }
+        EntityAssert {
+            world: self.world,
+            entity,
+        }
     }
 }
 
 impl<'w> EntityAssert<'w> {
-    pub fn has_component<T: Component + PartialEq + std::fmt::Debug>(
-        self,
-        expected: T,
-    ) -> Self {
+    pub fn has_component<T: Component + PartialEq + std::fmt::Debug>(self, expected: T) -> Self {
         let actual = self.world.get_component::<T>(self.entity);
         assert!(
             actual.is_some(),
@@ -112,13 +108,16 @@ impl<'w> EntityAssert<'w> {
         predicate: impl FnOnce(&T) -> bool,
         msg: &str,
     ) -> Self {
-        let component = self.world
+        let component = self
+            .world
             .get_component::<T>(self.entity)
-            .unwrap_or_else(|| panic!(
-                "entity {:?} missing component {}",
-                self.entity,
-                std::any::type_name::<T>()
-            ));
+            .unwrap_or_else(|| {
+                panic!(
+                    "entity {:?} missing component {}",
+                    self.entity,
+                    std::any::type_name::<T>()
+                )
+            });
         assert!(predicate(component), "entity {:?}: {msg}", self.entity);
         self
     }

@@ -1,6 +1,11 @@
-use macroquad::input::{get_keys_down, get_keys_pressed, get_keys_released, is_key_down, is_key_pressed};
+use macroquad::input::{
+    get_keys_down, get_keys_pressed, get_keys_released,
+};
 
-use crate::{ecs::{change_detection::params::Mut, event::Event}, input::{ButtonState, button_input::ButtonInput}};
+use crate::{
+    ecs::{change_detection::params::Mut, event::Event},
+    input::button_input::ButtonInput,
+};
 use std::hash::Hash;
 
 //TODO:Should keyboard input be on events or resource
@@ -16,16 +21,13 @@ pub struct KeyReleased(KeyCode);
 
 impl Event for KeyReleased {}
 
-pub fn keyboard_input_system(
-    mut keycode_input: Mut<'_, ButtonInput<KeyCode>>
-) {
+pub fn keyboard_input_system(mut keycode_input: Mut<'_, ButtonInput<KeyCode>>) {
     keycode_input.set_pressed(get_keys_down().into_iter().map(|k| k.into()).collect());
     keycode_input.set_just_pressed(get_keys_pressed().into_iter().map(|k| k.into()).collect());
     keycode_input.set_just_released(get_keys_released().into_iter().map(|k| k.into()).collect());
 }
 
-
-#[derive(Debug,  Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum KeyCode {
     /// <kbd>\`</kbd> on a US keyboard. This is also called a backtick or grave.
     /// This is the <kbd>半角</kbd>/<kbd>全角</kbd>/<kbd>漢字</kbd>

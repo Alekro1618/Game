@@ -1,9 +1,15 @@
-use crate::{ecs::components::{Component, Mutable, StorageType}, math::vec::Vec2};
+use serde::{Deserialize, Serialize};
 
+use crate::{
+    ecs::components::{Component, Mutable, StorageType},
+    math::vec::Vec2,
+};
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Transform {
-    pub position : Vec2,
-    pub rotation : f32,
-    pub scale : Vec2
+    pub position: Vec2,
+    pub rotation: f32,
+    pub scale: Vec2,
 }
 
 impl Component for Transform {
@@ -11,7 +17,6 @@ impl Component for Transform {
 
     type Mutability = Mutable;
 }
-
 
 impl Transform {
     pub const IDENTITY: Self = Transform {
@@ -50,17 +55,17 @@ impl Transform {
     }
 
     #[inline]
-    pub fn translate(&mut self, vector : Vec2) {
+    pub fn translate(&mut self, vector: Vec2) {
         self.position += vector;
     }
 
     #[inline]
-    pub fn rotate(&mut self, angle : f32) {
+    pub fn rotate(&mut self, angle: f32) {
         self.rotation += angle;
     }
 
     #[inline]
-    pub fn scale(&mut self, vector : Vec2) {
+    pub fn scale(&mut self, vector: Vec2) {
         self.scale += vector;
     }
 }

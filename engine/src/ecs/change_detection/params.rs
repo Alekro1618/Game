@@ -13,11 +13,9 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         _added: &'w mut Tick,
         _last_changed: &'w mut Tick,
         _last_run: Tick,
-        _this_run: Tick
+        _this_run: Tick,
     ) -> Self {
-        Self {
-            value,
-        }
+        Self { value }
     }
 
     // pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
@@ -32,10 +30,10 @@ impl<'w, T: ?Sized> Deref for Mut<'w, T> {
     fn deref(&self) -> &Self::Target {
         self.value
     }
-}   
+}
 
 impl<'w, T: ?Sized> DerefMut for Mut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.value
-    }    
+    }
 }

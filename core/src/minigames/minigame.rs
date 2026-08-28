@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use engine::ecs::{entities::{Entity, id::EntityId}, systems::commands::Commands};
+use engine::{app::App, ecs::{entities::{Entity, id::EntityId}, systems::commands::Commands}};
 use engine_macros::{Event, Resource};
 
 use crate::{items::Item, players::player_type::PlayerType};
@@ -18,12 +18,24 @@ impl<M : MiniGame> MiniGameInstance<M> {
     pub fn setup(&mut self, commands : &mut Commands, input : Option<Item>) {
         self.instance.on_setup(commands, input);
     }
+
+    pub fn unload(&self, commands : &mut Commands) {
+        self.instance.on_unload(commands);
+    }
+
+    pub fn end(&self) -> Option<Item> {
+        self.instance.on_end()
+    }
 }
 
 pub trait MiniGame : Sync + Send + 'static + Default {
     fn on_setup(&mut self, commands : &mut Commands, input : Option<Item>);
     fn on_fail(&self, reason : impl MiniGameFailureReason) -> MiniGameFailed { reason.to_failed() }
+    fn on_unload(&self, commands : &mut Commands);
     fn on_end(&self) -> Option<Item>;
+    fn build(&self, _app : &mut App) {
+
+    }
 }
 
 pub trait MiniGameFailureReason {

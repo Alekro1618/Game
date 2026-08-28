@@ -13,7 +13,9 @@ mod systems;
 pub struct GeneralMiniGamePlugin;
 
 impl Plugin for GeneralMiniGamePlugin {
-    fn build(self, _app:  &mut engine::app::App) {}
+    fn build(self, _app:  &mut engine::app::App) {
+        
+    }
 }
 
 pub struct MiniGamePlugin<M : MiniGame>(PhantomData<M>);

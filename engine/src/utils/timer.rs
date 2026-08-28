@@ -1,89 +1,117 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
-
-use engine_macros::Resource;
-
-use crate::{app::{FIXED_UPDATE, main_schedule::ScheduleLabel, plugin::{Plugin}}, ecs::{change_detection::params::Mut, components::{Component, Mutable, StorageType}, entities::id::EntityId, event::Event, resource::Resource, systems::{commands::Commands, function_system::{F1, F2, F3}, query::Query}}, utils::resources::GameSpeed};
-
-pub const TIME_EPSILON : f32 = 1e-2;
+use std::marker::PhantomData;
 
 
-pub struct OnTimerFinished<M, T> 
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static  {
-    pub result : Option<T>,
-    _phantom : PhantomData<M>
+use crate::{
+    app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
+        components::{Component, Mutable, StorageType},
+        entities::id::EntityId,
+        event::Event,
+        observer::system_param::On,
+        systems::{
+            commands::Commands,
+            query::Query,
+        },
+    }, utils::resources::{GameSpeed, Time},
+};
+
+pub const TIME_EPSILON: f32 = 1e-2;
+
+pub struct StopTimer<T, M = ()>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    pub owner: Option<EntityId>,
+    _phantom: PhantomData<(T, M)>,
 }
 
-impl<M, T> Event for OnTimerFinished<M, T>
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static  {}
-
-
-pub struct StopTimer<M, T> 
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static  {
-    pub result : Option<T>,
-    _phantom : PhantomData<M>
+impl<M, T> StopTimer<T, M>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    pub fn new(owner: Option<EntityId>) -> Self {
+        Self {
+            owner,
+            _phantom: PhantomData,
+        }
+    }
 }
 
-impl<M, T> Event for StopTimer<M, T>
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static  {}
-
-pub struct Timer<M, T>
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static {
-    pub result : Option<T>,
-    pub value : f32,
-    pub begin : f32,
-    pub end : f32,
-    done : bool,
-    fliped : bool,
-    _phantom : PhantomData<M>
+impl<M, T> Event for StopTimer<T, M>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
 }
 
-impl<M, T> Component for Timer<M, T>
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static {
+pub enum OnTimerFinish {
+    Remove,
+    Restart,
+}
+
+pub struct Timer<T, M = ()>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    pub owner: Option<EntityId>,
+    pub result: Option<T>,
+    pub value: f32,
+    pub begin: f32,
+    pub end: f32,
+    done: bool,
+    fliped: bool,
+    ignore: bool,
+    on_finish: OnTimerFinish,
+    _phantom: PhantomData<M>,
+}
+
+impl<M, T> Component for Timer<T, M>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
     const STORAGE_TYPE: StorageType = StorageType::Table;
     type Mutability = Mutable;
 }
 
-impl<M, T> Timer<M, T>
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static {
-    pub fn new( begin : f32, end : f32) -> Self {
+impl<M, T> Timer<T, M>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    pub fn new(owner: Option<EntityId>, begin: f32, end: f32) -> Self {
         if begin < end {
             Self {
-                result : None,
+                owner,
+                result: None,
                 value: begin,
                 begin,
-                end, 
+                end,
                 done: false,
                 fliped: false,
-                _phantom : PhantomData
+                ignore: false,
+                on_finish: OnTimerFinish::Remove,
+                _phantom: PhantomData,
             }
         } else {
-            Self { 
+            Self {
+                owner,
                 result: None,
                 value: end,
-                begin, 
+                begin,
                 end,
                 done: false,
                 fliped: true,
-                _phantom : PhantomData 
+                ignore: false,
+                on_finish: OnTimerFinish::Remove,
+                _phantom: PhantomData,
             }
         }
     }
 
-    pub fn set_result(&mut self, result : T) {
+    pub fn set_result(&mut self, result: T) {
         self.result = Some(result);
     }
 
@@ -96,7 +124,7 @@ where
         self.done = false;
     }
 
-    pub fn update(&mut self, interval : f32) {
+    pub fn update(&mut self, interval: f32) {
         if !self.fliped {
             self.value += interval;
             if self.end - self.value < TIME_EPSILON {
@@ -111,6 +139,14 @@ where
         }
     }
 
+    pub fn set_on_finish(&mut self, on_finish: OnTimerFinish) {
+        self.on_finish = on_finish;
+    }
+
+    pub fn ignore(&mut self) {
+        self.ignore = true;
+    }
+
     pub fn is_done(&self) -> bool {
         self.done
     }
@@ -118,29 +154,82 @@ where
     pub fn take_result(&mut self) -> Option<T> {
         self.result.take()
     }
+
+    pub fn time(&self) -> f32 {
+        self.value
+    }
 }
 
-fn update_timers<M, T>(mut command : Commands, query : Query<(EntityId, &mut Timer<M, T>)>, game_speed : &GameSpeed)
-where 
-    T : Sync + Send + 'static,
-    M : Sync + Send + 'static 
+fn update_timers<T, M>(
+    mut command: Commands,
+    query: Query<(EntityId, &mut Timer<T, M>)>,
+    time: &Time,
+) where
+    T: Event,
+    M: Sync + Send + 'static,
 {
     for (entity, mut timer) in query {
-        timer.update(game_speed.relative());
+        timer.update(time.delta());
         if timer.done {
-            command.trigger(OnTimerFinished::<M, T> { result: timer.take_result(), _phantom : PhantomData });
-            command.despawn(entity);
+            if !timer.ignore {
+                if let Some(result) = timer.take_result() {
+                    command.trigger(result);
+                }
+            }
+
+            match timer.on_finish {
+                OnTimerFinish::Remove => {
+                    command.despawn(entity);
+                }
+                OnTimerFinish::Restart => {
+                    timer.reset();
+                }
+            }
         }
     }
 }
 
-pub struct TimerPlugin<M, T>(pub PhantomData<(M, T)>);
+fn on_stop_timer<T, M>(on: On<StopTimer<T, M>>, query: Query<&mut Timer<T, M>>)
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    let stop_timer = on.event();
 
-impl<M, T> Plugin for TimerPlugin<M, T>
-where 
-    T : Sync + Send + 'static + Clone + Copy,
-    M : Sync + Send + 'static  {
-    fn build(self, app:  &mut crate::app::App) {
-        app.add_systems::<F3<Commands, Query<(EntityId, &mut Timer<M, T>)>, &GameSpeed>>(ScheduleLabel::FixedUpdate, update_timers::<M, T>);
+    let Some(mut timer) = query
+        .into_iter()
+        .find(|timer| timer.owner == stop_timer.owner)
+    else {
+        panic!("Failed to find timer matching the owner");
+    };
+
+    timer.ignore();
+}
+
+pub struct TimerPlugin<T, M = ()>(pub PhantomData<(M, T)>);
+
+impl<M, T> TimerPlugin<T, M>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<M, T> Plugin for TimerPlugin<T, M>
+where
+    T: Event,
+    M: Sync + Send + 'static,
+{
+    fn build(self, app: &mut crate::app::App) {
+        app.add_systems(
+            ScheduleLabel::Update,
+            update_timers::<T, M>,
+        )
+        .add_observer(
+            on_stop_timer::<T, M>,
+        );
     }
 }

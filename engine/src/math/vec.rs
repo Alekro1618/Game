@@ -1,14 +1,18 @@
-use std::{ fmt::Display, ops::{Add, AddAssign, BitOr, BitXor, Mul, Neg, Sub}};
+use std::{
+    fmt::Display,
+    ops::{Add, AddAssign, BitOr, BitXor, Mul, Neg, Sub},
+};
 
-pub fn vec2(x : impl Into<f32>, y : impl Into<f32>) -> Vec2{
+use serde::{Deserialize, Serialize};
+
+pub fn vec2(x: impl Into<f32>, y: impl Into<f32>) -> Vec2 {
     Vec2::new(x.into(), y.into())
 }
 
-
-#[derive(Clone, Copy, PartialEq, Default, Debug)]
+#[derive(Clone, Copy, PartialEq, Default, Debug, Serialize, Deserialize)]
 pub struct Vec2 {
-    pub x : f32,
-    pub y : f32
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Display for Vec2 {
@@ -55,7 +59,7 @@ impl Vec2 {
     pub const NEG_Y: Self = Self::new(0.0, -1.0);
 
     #[inline]
-    pub const fn new(x : f32, y : f32) -> Self {
+    pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
 
@@ -92,30 +96,30 @@ impl Vec2 {
     }
 
     #[inline]
-    pub fn distance(self, from : Vec2) -> f32 {
+    pub fn distance(self, from: Vec2) -> f32 {
         (self - from).norm()
     }
 
     #[inline]
-    pub fn distance_sq(self, from : Vec2) -> f32 {
+    pub fn distance_sq(self, from: Vec2) -> f32 {
         (self - from).norm_sq()
     }
 
     #[inline]
-    pub fn distance_inv(self, from : Vec2) -> f32 {
+    pub fn distance_inv(self, from: Vec2) -> f32 {
         (self - from).norm_inv()
     }
 
     #[inline]
     pub fn lerp(self, rhs: Self, s: f32) -> Self {
-        (1.0 - s) * self  + s * rhs 
+        (1.0 - s) * self + s * rhs
     }
 
     #[inline]
     pub fn mult_by(self, rhs: Self) -> Self {
         Vec2 {
             x: self.x * rhs.x,
-            y: self.y * rhs.y 
+            y: self.y * rhs.y,
         }
     }
 
@@ -130,8 +134,8 @@ impl Vec2 {
     }
 
     #[inline]
-    pub fn map(self, action : impl Fn(f32) -> f32) -> Self {
-        Self::new(action(self.x),  action(self.y))
+    pub fn map(self, action: impl Fn(f32) -> f32) -> Self {
+        Self::new(action(self.x), action(self.y))
     }
 }
 
@@ -152,7 +156,7 @@ impl Add for Vec2 {
     fn add(self, rhs: Self) -> Self::Output {
         Vec2 {
             x: self.x + rhs.x,
-            y: self.y + rhs.y
+            y: self.y + rhs.y,
         }
     }
 }
@@ -170,18 +174,18 @@ impl Sub for Vec2 {
     fn sub(self, rhs: Self) -> Self::Output {
         Vec2 {
             x: self.x - rhs.x,
-            y: self.y - rhs.y
+            y: self.y - rhs.y,
         }
     }
 }
 
 impl Neg for Vec2 {
     type Output = Vec2;
-    
+
     fn neg(self) -> Self::Output {
         Vec2 {
             x: -self.x,
-            y: -self.y
+            y: -self.y,
         }
     }
 }
@@ -192,7 +196,7 @@ impl Mul<Vec2> for f32 {
     fn mul(self, rhs: Vec2) -> Self::Output {
         Vec2 {
             x: rhs.x * self,
-            y: rhs.y * self
+            y: rhs.y * self,
         }
     }
 }
@@ -204,7 +208,6 @@ impl BitXor for &Vec2 {
         self.x * rhs.x + self.y * rhs.y
     }
 }
-
 
 impl BitXor for Vec2 {
     type Output = f32;

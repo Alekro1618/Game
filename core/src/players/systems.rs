@@ -1,202 +1,132 @@
+use std::slice::Iter;
+
 use engine::{ecs::{change_detection::params::Mut, entities::id::EntityId, message::message_reader::MessageReader, observer::system_param::On, systems::{commands::{self, Commands}, query::Query}}, input::{button_input::ButtonInput, keyboard::KeyCode}, utils::{resources::GameSpeed, *}};
 use engine_macros::{Component, Event};
 
-use crate::{algos::path_finding::find_path, machines::{machine::{DisruptMachine, InteractWithMachine}, machine_register::MachineRegister}, players::{player::{Command, Disrupt, Interact, PendingAction, Player, PlayerAction, PlayerSpeed, SetPath, StepEnd}, player_register::{self, PlayerRegister, RegisterPlayer}, player_state::PlayerState, player_type::{Client, Enemy, PlayerType, Service}, spawner::{DespawnEnemy, SpawnClient, SpawnEnemy, SpawnService, SpawnedClient, SpawnedEnemy, SpawnedService}}, utils::grid::{self, Grid, Point, SmoothToGrid}};
+use crate::{actions::{action::{Action, IntoBoxedAction}, events::QueueActions}, algos::path_finding::find_path, instructions::{components::{InstructionLabel::WalkTo, Step::{self, WaitUntil}}, events::{ExecuteInstruction, ExecuteStep}, manager::InstructionManager}, items::{AddToInventory, Inventory, RemoveFromInventory}, machines::{events::{Inputed, Outputed}, register::MachineRegister}, players::{events::{self, Despawn, Despawned, Spawn, Spawned}, player::{ Player, PlayerSpeed}, player_actions::{self, add_path}, player_register::{self, PlayerRegister, RegisterPlayer}, player_state::{self, PlayerState}, player_type::{Client, Enemy, PlayerType, Service}}, utils::grid::{self, Grid, GridName::{self, Players}, Point, SmoothToGrid}};
 
 
 
 pub fn advance_smooth(
-    mut commands : Commands,
-    query : Query<(EntityId, &PlayerSpeed, &mut SmoothToGrid)>,
-    speed : &GameSpeed
-) {
-    for (entity, player_speed, mut smooth) in query {
-        smooth.update(player_speed.0 * speed.relative());
-        if smooth.is_end() {
-            commands.trigger(StepEnd(entity));
-        }
-    }
-}
-
-
-pub fn on_step_end(
-    on : On<StepEnd>,
-    query : Query<&mut PlayerState>,
-) {
-    let step_end = on.event();
-    let Ok(mut player_state) = query.get_mut(step_end.0) else {
-        panic!("Player who end stepping doesn't exist");
-    };
-
-    player_state.set_idle();
-}
-
-
-
-/// Handles players with `PendingAction` component.
-/// If `PlayerAction` exists then it will remove `PendingAction` and proceed with either
-/// - `PlayerAction::WalkTo` adds `SmoothToGrid` from current position to target position
-/// - `PlayerAction::Interact` adds `Interacting` at curret position
-pub fn handle_pending_players(
-    on : On<PendingAction>,
-    mut command : Commands,
-    query : Query<(&mut Player, &mut PlayerState)>
-) {
-    let entity = on.event().0;
-
-    let Ok((mut player, mut player_state)) = query.get_mut(entity) else {
-        panic!("Player who we pend action doesn't exist");
-    };
-
-    //We don't handle it if player is currently in walking state or repearing machine
-    if player_state.is_walking() || player_state.is_repearing() {
-        return;
-    }
-
-    let current_pos = player.point;
-    //Procceed with next action
-    player.next_action();
-    
-    if let Some(action) = player.current_action {
-        match action {
-            PlayerAction::WalkTo(point) => {
-                player_state.set_walking();
-                let point = point.clone();
-                command.add(entity, 
-                    (
-                        SmoothToGrid::new(
-                        grid::GridName::Players, 
-                        current_pos,
-                        point),
-                    )
-                );
-                player.point = point;
-            },
-            PlayerAction::Interact(with, item) => {
-                player_state.set_active();
-                command.trigger(InteractWithMachine(entity, with, item));
-            },
-            PlayerAction::Direction(_) => {
-
-            },
-            PlayerAction::Disrupt(who) => {
-                command.trigger(DisruptMachine(entity, who));
-            },
-        }
-    }
-}
-
-pub fn on_interact(
-    on : On<Interact>,
-    query : Query<&mut Player>,
-    machine_register : &MachineRegister,
-    player_register : &PlayerRegister
-) {
-    let interact = on.event();
-    let entity_id = player_register.get(&interact.player).unwrap();
-    let mut player = query.get_mut(entity_id).unwrap();
-
-    player.interact(machine_register.get(&interact.machine).unwrap(), interact.item);
-}
-
-
-pub fn on_disrupt(
-    on : On<Disrupt>,
-    query : Query<&mut Player>,
-    machine_register : &MachineRegister,
-    player_register : &PlayerRegister
-) {
-    let disrupt = on.event();
-    let entity_id = player_register.get(&disrupt.player).unwrap();
-    let mut player = query.get_mut(entity_id).unwrap();
-
-    player.disrupt(machine_register.get(&disrupt.machine).unwrap());
-}
-
-pub fn on_set_path(
-    on : On<SetPath>,
-    query : Query<&mut Player>,
+    query : Query<(&PlayerSpeed, &mut SmoothToGrid)>,
+    speed : &GameSpeed,
     grid : &Grid,
-    player_register : &PlayerRegister
 ) {
-    let set_path = on.event();
-    let entity_id = player_register.get(&set_path.player).unwrap();
-    let mut player = query.get_mut(entity_id).unwrap();
-    let path = find_path(grid, set_path.from, set_path.to);
-    player.add_path(path);
+    for (player_speed, mut smooth) in query {
+        smooth.update(player_speed.0 * speed.relative());
+    }
 }
 
 pub fn register_players(
     mut commands : Commands,
-    query_clients : Query<(EntityId, &Client)>,
-    query_service : Query<(EntityId, &Service)>,
-    query_enemies : Query<(EntityId, &Enemy)>,
+    query_clients : Query<(EntityId, &Client, &SmoothToGrid)>,
+    query_service : Query<(EntityId, &Service, &SmoothToGrid)>,
+    query_enemies : Query<(EntityId, &Enemy, &SmoothToGrid)>,
 ) {
     let mut player_register = PlayerRegister::new();
-    for (entity, &client) in query_clients {
+    for (entity, &client, smooth) in query_clients {
         player_register.insert(PlayerType::Client(client), entity);
+        player_register.update_future(PlayerType::Client(client), smooth.start);
     }
-    for (entity, &service) in query_service {
+    for (entity, &service, smooth) in query_service {
         player_register.insert(PlayerType::Service(service), entity);
+        player_register.update_future(PlayerType::Service(service), smooth.start);
     }
-    for (entity, &enemy) in query_enemies {
+    for (entity, &enemy, smooth ) in query_enemies {
         player_register.insert(PlayerType::Enemy(enemy), entity);
+        player_register.update_future(PlayerType::Enemy(enemy), smooth.start);
     }
     commands.insert(player_register);
 }
 
-
 pub fn on_client_spawn(
-    on : On<SpawnClient>,
+    on : On<Spawn<Client>>,
     mut commands : Commands,
 ) {
     let spawn= on.event();
     let client = spawn.0;
+    let point = spawn.1;
     commands.queue(move |world| {
         let entity_id = world.spawn((client,));
-        world.trigger_ref(&mut RegisterPlayer(PlayerType::Client(client), entity_id));
-        world.trigger_ref(&mut SpawnedClient(entity_id, client));
-        
+        world.trigger_ref(&mut RegisterPlayer(PlayerType::Client(client), entity_id, point));
+        world.trigger_ref(&mut Spawned(entity_id, client));
     });
 }
 
 pub fn on_service_spawn(
-    on : On<SpawnService>,
+    on : On<Spawn<Service>>,
     mut commands : Commands,
 ) {
     let spawn= on.event();
     let service = spawn.0;
+    let point = spawn.1;
     commands.queue(move |world| {
         let entity_id = world.spawn((service,));
-        world.trigger_ref(&mut RegisterPlayer(PlayerType::Service(service), entity_id));
-        world.trigger_ref(&mut SpawnedService(entity_id, service));
+        world.trigger_ref(&mut RegisterPlayer(PlayerType::Service(service), entity_id, point));
+        world.trigger_ref(&mut Spawned(entity_id, service));
     });
 }
 
 pub fn on_enemy_spawn(
-    on : On<SpawnEnemy>,
+    on : On<Spawn<Enemy>>,
     mut commands : Commands,
 ) {
     let spawn= on.event();
     let enemy = spawn.0;
+    let point = spawn.1;
     commands.queue(move |world| {
         let entity_id = world.spawn((enemy,));
-        world.trigger_ref(&mut RegisterPlayer(PlayerType::Enemy(enemy), entity_id));
-        world.trigger_ref(&mut SpawnedEnemy(entity_id, enemy));
+        world.trigger_ref(&mut RegisterPlayer(PlayerType::Enemy(enemy), entity_id, point));
+        world.trigger_ref(&mut Spawned(entity_id, enemy));
+    });
+}
+
+pub fn on_client_despawn(
+    on : On<Despawn<Client>>, 
+    mut commands : Commands,
+    mut player_register : Mut<'_, PlayerRegister>,
+) {
+    let despawn= on.event();
+    let client = despawn.0;
+    let entity_id = player_register.take(&PlayerType::Client(client));
+    commands.queue(move |world| {
+        if let Some(entity) = entity_id {
+            world.trigger_ref(&mut Despawned(entity, client));
+            world.despawn(entity);
+        }
+    });
+}
+
+pub fn on_service_despawn(
+    on : On<Despawn<Service>>, 
+    mut commands : Commands,
+    mut player_register : Mut<'_, PlayerRegister>,
+) {
+    let despawn= on.event();
+    let service = despawn.0;
+    let entity_id = player_register.take(&PlayerType::Service(service));
+    commands.queue(move |world| {
+        if let Some(entity) = entity_id {
+            world.trigger_ref(&mut Despawned(entity, service));
+            world.despawn(entity);
+        }
     });
 }
 
 pub fn on_enemy_despawn(
-    on : On<DespawnEnemy>,
-    mut commands : Commands
+    on : On<Despawn<Enemy>>, 
+    mut commands : Commands,
+    mut player_register : Mut<'_, PlayerRegister>,
 ) {
-    // let despawn= on.event();
-    // let enemy = despawn.0;
-    // commands.queue(move |world| {
-    //     let entity_id = world.despawn();
-    //     world.trigger_ref(&mut RegisterPlayer(PlayerType::Enemy(enemy), entity_id));
-    //     world.trigger_ref(&mut SpawnedEnemy(entity_id, enemy));
-    // });
+    let despawn= on.event();
+    let enemy = despawn.0;
+    let entity_id = player_register.take(&PlayerType::Enemy(enemy));
+    commands.queue(move |world| {
+        if let Some(entity) = entity_id {
+            world.trigger_ref(&mut Despawned(entity, enemy));
+            world.despawn(entity);
+        }
+    });
 }
 
 pub fn on_register_player(
@@ -205,4 +135,128 @@ pub fn on_register_player(
 ) {
     let register = on.event();
     player_register.insert(register.0, register.1);
+    player_register.update_future(register.0, register.2);
+}
+
+pub fn on_inputed(
+    on : On<Inputed>,
+    mut commands : Commands,
+    player_register :  &PlayerRegister,
+) {
+    let inputed = on.event();
+    let Inputed(entity, machine_id, input) = inputed;
+
+    if let Some(item) = input {
+        commands.trigger(RemoveFromInventory(*entity, *item));
+    }
+    
+    match player_register.get_type(entity).unwrap() {
+        PlayerType::Client(client) => {
+            commands.trigger(events::Inputed(*entity, client, *machine_id, *input));
+        },  
+        PlayerType::Service(service) => {
+            commands.trigger(events::Inputed(*entity, service, *machine_id, *input));
+        },
+        PlayerType::Enemy(enemy) => {
+            commands.trigger(events::Inputed(*entity, enemy, *machine_id, *input));
+        },  
+    }
+}
+
+pub fn on_outputed(
+    on : On<Outputed>,
+    mut commands : Commands,
+    player_register :  &PlayerRegister,
+) {
+    let outputed = on.event();
+    let Outputed(entity, machine_id, input) = outputed;
+
+    if let Some(item) = input {
+        commands.trigger(AddToInventory(*entity, *item));
+    }
+
+    match player_register.get_type(entity).unwrap() {
+        PlayerType::Client(client) => {
+            commands.trigger(events::Outputed(*entity, client, *machine_id, *input));
+        },  
+        PlayerType::Service(service) => {
+            commands.trigger(events::Outputed(*entity, service, *machine_id, *input));
+        },
+        PlayerType::Enemy(enemy) => {
+            commands.trigger(events::Outputed(*entity, enemy, *machine_id, *input));
+        },  
+    }
+}
+
+pub fn on_execute_instruction(
+    on : On<ExecuteInstruction>,
+    mut commands : Commands,
+    instruction_manager : &InstructionManager,
+    mut player_register :  Mut<PlayerRegister>,
+    machine_register : & MachineRegister,
+    grid : &Grid,
+) {
+    let ExecuteInstruction(player, label) = on.event();
+    let instruction = instruction_manager.get(label).unwrap();
+    let mut iter = instruction.iter();
+
+    let mut queue = Vec::new();
+
+    let mut future_position = player_register.get_future(player).unwrap();
+    let player_id = player_register.get(player).unwrap();
+
+    while let Some(step) = iter.next() {
+        match step {
+            Step::MoveTo(point) => {
+                add_path(grid, &mut queue, future_position, *point);
+                future_position = *point;
+            },
+            Step::Interact(machine_type, item) => {
+                let machine = machine_register.get(machine_type).unwrap();
+                queue.push(Box::new(player_actions::Interact{ machine, item: *item }));
+            },
+            Step::WaitUntil(machine_type) => {
+                let machine = machine_register.get(machine_type).unwrap();
+                queue.push(Box::new(player_actions::WaitUntil{ machine }));
+            },
+        }
+    }
+    commands.trigger(QueueActions(player_id, queue));
+
+    player_register.update_future(*player, future_position);
+}
+
+
+pub fn on_execute_step(
+    on : On<ExecuteStep>,
+    mut commands : Commands,
+    mut player_register :  Mut<PlayerRegister>,
+    machine_register : & MachineRegister,
+    grid : &Grid,
+) {
+    let ExecuteStep(player, step) = on.event();
+
+    let mut queue = Vec::new();
+
+    let mut future_position = player_register.get_future(player).unwrap();
+    let player_id = player_register.get(player).unwrap();
+
+    match step {
+        Step::MoveTo(point) => {
+            add_path(grid, &mut queue, future_position, *point);
+            future_position = *point;
+        },
+        Step::Interact(machine_type, item) => {
+            let machine = machine_register.get(machine_type).unwrap();
+            queue.push(Box::new(player_actions::Interact{ machine, item: *item }));
+        },
+        Step::WaitUntil(machine_type) => {
+            let machine = machine_register.get(machine_type).unwrap();
+            queue.push(Box::new(player_actions::WaitUntil{ machine }));
+        },
+    }
+
+    commands.trigger(QueueActions(player_id, queue));
+
+    player_register.update_future(*player, future_position);
 }

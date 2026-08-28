@@ -1,6 +1,10 @@
 use std::marker::PhantomData;
 
-use crate::ecs::{components::{Component, id::ComponentId}, entities::id::EntityId, query::query_world::WorldQuery};
+use crate::ecs::{
+    components::{Component, id::ComponentId},
+    entities::id::EntityId,
+    query::query_world::WorldQuery,
+};
 
 pub trait QueryFilter: WorldQuery {
     const IS_ARCHETYPAL: bool;
@@ -39,7 +43,6 @@ impl<T: Component> WorldQuery for With<T> {
         _last_run: crate::ecs::change_detection::tick::Tick,
         _this_run: crate::ecs::change_detection::tick::Tick,
     ) -> Self::Fetch<'w> {
-        
     }
 
     fn init_state(world: &mut crate::ecs::worlds::World) -> Self::State {
@@ -50,7 +53,8 @@ impl<T: Component> WorldQuery for With<T> {
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
         _table: &'w crate::ecs::storage::Table,
-    ) { }
+    ) {
+    }
 
     fn matches_component_set(
         state: &Self::State,
@@ -86,7 +90,6 @@ impl<T: Component> WorldQuery for Without<T> {
         _last_run: crate::ecs::change_detection::tick::Tick,
         _this_run: crate::ecs::change_detection::tick::Tick,
     ) -> Self::Fetch<'w> {
-        
     }
 
     fn init_state(world: &mut crate::ecs::worlds::World) -> Self::State {
@@ -97,7 +100,8 @@ impl<T: Component> WorldQuery for Without<T> {
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
         _table: &'w crate::ecs::storage::Table,
-    ) { }
+    ) {
+    }
 
     fn matches_component_set(
         state: &Self::State,
@@ -117,5 +121,140 @@ impl<T: Component> QueryFilter for Without<T> {
         _table_row: u32,
     ) -> bool {
         true
+    }
+}
+
+pub struct Or<A: QueryFilter, B: QueryFilter>(pub A, pub B);
+
+impl<A: QueryFilter, B: QueryFilter> WorldQuery for Or<A, B> {
+    type Fetch<'w> = (A::Fetch<'w>, B::Fetch<'w>);
+
+    type State = (A::State, B::State);
+
+    fn init_fetch<'w, 's>(
+        world: &'w crate::ecs::worlds::World,
+        state: &'s Self::State,
+        last_run: crate::ecs::change_detection::tick::Tick,
+        this_run: crate::ecs::change_detection::tick::Tick,
+    ) -> Self::Fetch<'w> {
+        (
+            A::init_fetch(world, &state.0, last_run, this_run),
+            B::init_fetch(world, &state.1, last_run, this_run),
+        )
+    }
+
+    fn init_state(world: &mut crate::ecs::worlds::World) -> Self::State {
+        (A::init_state(world), B::init_state(world))
+    }
+
+    unsafe fn set_table<'w, 's>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _table: &'w crate::ecs::storage::Table,
+    ) {
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(crate::ecs::components::id::ComponentId) -> bool,
+    ) -> bool {
+        A::matches_component_set(&state.0, set_contains_id)
+            || B::matches_component_set(&state.1, set_contains_id)
+    }
+}
+
+impl<A: QueryFilter, B: QueryFilter> QueryFilter for Or<A, B> {
+    const IS_ARCHETYPAL: bool = true;
+
+    fn filter_fetch(
+        state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
+        entity: EntityId,
+        table_row: u32,
+    ) -> bool {
+        A::filter_fetch(&state.0, &mut fetch.0, entity, table_row)
+            || B::filter_fetch(&state.1, &mut fetch.1, entity, table_row)
+    }
+}
+
+pub struct And<A: QueryFilter, B: QueryFilter>(pub A, pub B);
+
+impl<A: QueryFilter, B: QueryFilter> WorldQuery for And<A, B> {
+    type Fetch<'w> = (A::Fetch<'w>, B::Fetch<'w>);
+
+    type State = (A::State, B::State);
+
+    fn init_fetch<'w, 's>(
+        world: &'w crate::ecs::worlds::World,
+        state: &'s Self::State,
+        last_run: crate::ecs::change_detection::tick::Tick,
+        this_run: crate::ecs::change_detection::tick::Tick,
+    ) -> Self::Fetch<'w> {
+        (
+            A::init_fetch(world, &state.0, last_run, this_run),
+            B::init_fetch(world, &state.1, last_run, this_run),
+        )
+    }
+
+    fn init_state(world: &mut crate::ecs::worlds::World) -> Self::State {
+        (A::init_state(world), B::init_state(world))
+    }
+
+    unsafe fn set_table<'w, 's>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _table: &'w crate::ecs::storage::Table,
+    ) {
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(crate::ecs::components::id::ComponentId) -> bool,
+    ) -> bool {
+        A::matches_component_set(&state.0, set_contains_id)
+            && B::matches_component_set(&state.1, set_contains_id)
+    }
+}
+
+impl<A: QueryFilter, B: QueryFilter> QueryFilter for And<A, B> {
+    const IS_ARCHETYPAL: bool = true;
+
+    fn filter_fetch(
+        state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
+        entity: EntityId,
+        table_row: u32,
+    ) -> bool {
+        A::filter_fetch(&state.0, &mut fetch.0, entity, table_row)
+            && B::filter_fetch(&state.1, &mut fetch.1, entity, table_row)
+    }
+}
+
+impl<A: QueryFilter, B: QueryFilter> QueryFilter for (A, B) {
+    const IS_ARCHETYPAL: bool = true;
+
+    fn filter_fetch(
+        state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
+        entity: EntityId,
+        table_row: u32,
+    ) -> bool {
+        A::filter_fetch(&state.0, &mut fetch.0, entity, table_row)
+            && B::filter_fetch(&state.1, &mut fetch.1, entity, table_row)
+    }
+}
+
+impl<A: QueryFilter, B: QueryFilter, C: QueryFilter> QueryFilter for (A, B, C) {
+    const IS_ARCHETYPAL: bool = true;
+
+    fn filter_fetch(
+        state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
+        entity: EntityId,
+        table_row: u32,
+    ) -> bool {
+        A::filter_fetch(&state.0, &mut fetch.0, entity, table_row) && 
+        B::filter_fetch(&state.1, &mut fetch.1, entity, table_row) && 
+        C::filter_fetch(&state.2, &mut fetch.2, entity, table_row)
     }
 }

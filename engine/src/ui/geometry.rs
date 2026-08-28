@@ -1,7 +1,9 @@
 use std::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 
-use crate::{error::error::{Error, ErrorKind}, math::vec::Vec2};
-
+use crate::{
+    error::error::{Error, ErrorKind},
+    math::vec::Vec2,
+};
 
 #[derive(Copy, Clone, Debug)]
 
@@ -298,7 +300,6 @@ impl Neg for Val {
     }
 }
 
-
 impl Val {
     /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
     /// and `physical_target_size` context values.
@@ -306,13 +307,12 @@ impl Val {
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     pub fn resolve(
         self,
-        scale_factor: f32,
         physical_base_value: f32,
         physical_target_size: Vec2,
     ) -> Result<f32, Error> {
         match self {
             Val::Percent(value) => Ok(physical_base_value * value / 100.0),
-            Val::Px(value) => Ok(value * scale_factor),
+            Val::Px(value) => Ok(value),
             Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
             Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
             Val::VMin(value) => {
@@ -547,7 +547,6 @@ impl UiRect {
         }
     }
 
-
     #[inline]
     pub const fn with_left(mut self, left: Val) -> Self {
         self.left = left;
@@ -720,21 +719,16 @@ impl UiPosition {
     }
 
     /// Resolves the `Position` into physical coordinates.
-    pub fn resolve(
-        self,
-        scale_factor: f32,
-        physical_size: Vec2,
-        physical_target_size: Vec2,
-    ) -> Vec2 {
+    pub fn resolve(self, physical_size: Vec2, physical_target_size: Vec2) -> Vec2 {
         let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
         physical_size * self.anchor
             + d * Vec2::new(
                 self.x
-                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .resolve(physical_size.x, physical_target_size)
                     .unwrap_or(0.),
                 self.y
-                    .resolve(scale_factor, physical_size.y, physical_target_size)
+                    .resolve(physical_size.y, physical_target_size)
                     .unwrap_or(0.),
             )
     }
@@ -742,12 +736,19 @@ impl UiPosition {
 
 impl From<Val> for UiPosition {
     fn from(x: Val) -> Self {
-        Self { x, ..Self::default() }
+        Self {
+            x,
+            ..Self::default()
+        }
     }
 }
 
 impl From<(Val, Val)> for UiPosition {
     fn from((x, y): (Val, Val)) -> Self {
-        Self { x, y, ..Self::default() }
+        Self {
+            x,
+            y,
+            ..Self::default()
+        }
     }
 }

@@ -32,7 +32,6 @@ pub trait Component: Send + Sync + 'static {
 
     // #[inline]
     // fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
-
 }
 
 mod private {
@@ -58,6 +57,7 @@ impl private::Seal for Mutable {}
 impl ComponentMutability for Mutable {
     const MUTABLE: bool = true;
 }
+
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum StorageType {
     #[default]

@@ -1,5 +1,11 @@
-
-use crate::ecs::{archetype::Archetypes, change_detection::tick::Tick, entities::id::EntityId, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, storage::Table, worlds::World};
+use crate::ecs::{
+    archetype::Archetypes,
+    change_detection::tick::Tick,
+    entities::id::EntityId,
+    query::{fetch::QueryData, filter::QueryFilter, state::QueryState},
+    storage::Table,
+    worlds::World,
+};
 
 #[allow(dead_code)]
 pub struct QueryIter<'w, 's, D: QueryData, F: QueryFilter> {
@@ -7,7 +13,7 @@ pub struct QueryIter<'w, 's, D: QueryData, F: QueryFilter> {
     tables: &'w Vec<Table>,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<D, F>,
-    cursor : QueryCursor<'w, D, F>
+    cursor: QueryCursor<'w, D, F>,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
@@ -17,7 +23,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        let fetch =  D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         let tables = &world.storages().tables;
         let archetypes = world.archetypes();
@@ -26,7 +32,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             query_state,
             tables,
             archetypes,
-            cursor: QueryCursor::init(fetch, filter)
+            cursor: QueryCursor::init(fetch, filter),
         }
     }
 }
@@ -41,23 +47,20 @@ struct QueryCursor<'w, D: QueryData, F: QueryFilter> {
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> QueryCursor<'w, D, F> {
-    fn init(
-        fetch: D::Fetch<'w>,
-        filter: F::Fetch<'w>
-    ) -> Self {
+    fn init(fetch: D::Fetch<'w>, filter: F::Fetch<'w>) -> Self {
         Self {
             fetch,
             filter,
             entities: &[],
             current_len: 0,
             current_row: 0,
-            current_table_id: 0
+            current_table_id: 0,
         }
     }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
-    type Item  = D::Item<'w, 's>;
+    type Item = D::Item<'w, 's>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -72,14 +75,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 
                 let table = table.unwrap();
 
-                if table.is_empty() ||
-                !F::matches_component_set(
-                    &self.query_state.filter_state, 
-                    &|component_id| { table.has_component(component_id)}
-                ) {
+                if table.is_empty()
+                    || !F::matches_component_set(&self.query_state.filter_state, &|component_id| {
+                        table.has_component(component_id)
+                    })
+                {
                     continue;
                 }
-                
+
                 unsafe {
                     D::set_table(&mut cursor.fetch, &self.query_state.fetch_state, table);
                     F::set_table(&mut cursor.filter, &self.query_state.filter_state, table);
@@ -87,18 +90,28 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                 cursor.entities = table.entities();
                 cursor.current_len = table.len() as u32;
                 cursor.current_row = 0;
-            } 
+            }
 
-            let entity = 
-                unsafe { cursor.entities.get_unchecked(cursor.current_row as usize) };
+            let entity = unsafe { cursor.entities.get_unchecked(cursor.current_row as usize) };
             let row = cursor.current_row.clone();
             cursor.current_row += 1;
-            if !F::filter_fetch(&self.query_state.filter_state, &mut cursor.filter, *entity, row) {
+            if !F::filter_fetch(
+                &self.query_state.filter_state,
+                &mut cursor.filter,
+                *entity,
+                row,
+            ) {
                 continue;
             }
 
-            let item =
-                unsafe { D::fetch(&self.query_state.fetch_state, &mut cursor.fetch, *entity, row) };
+            let item = unsafe {
+                D::fetch(
+                    &self.query_state.fetch_state,
+                    &mut cursor.fetch,
+                    *entity,
+                    row,
+                )
+            };
             if let Some(item) = item {
                 return Some(item);
             }

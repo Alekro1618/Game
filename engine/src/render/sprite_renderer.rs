@@ -1,6 +1,9 @@
-use macroquad::{color::WHITE, shapes::{DrawRectangleParams, draw_rectangle_ex}, text::draw_text_ex, texture::{DrawTextureParams, draw_texture_ex}, time::draw_fps, window::clear_background};
 
-use crate::{app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{systems::{function_system::F1, query::Query}, worlds::World}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
+use crate::{
+    app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetServer, asset::Assets}, ecs::{
+        systems::query::Query, worlds::World,
+    }, image::{Image, TempQuadImageStorage}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite,
+};
 
 pub struct RenderPlugin;
 
@@ -9,10 +12,15 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 }
 
 impl Plugin for RenderPlugin {
-    fn build(self, app:  &mut App) {
-        
-
-        app.add_systems::<F1<Query<(&Transform, &Sprite)>>>(ScheduleLabel::Update, render);
+    fn build(self, app: &mut App) {
+        app.add_systems(
+            ScheduleLabel::Update,
+            render,
+        );
+        // .add_systems(
+        //     ScheduleLabel::Update, 
+        //     initiate_loading_for_sprites_with_lazy_handle
+        // );
 
         //let mut render_app = SubApp::new();
         //app.set_extract(extract);
@@ -21,25 +29,89 @@ impl Plugin for RenderPlugin {
     }
 }
 
-fn render(drawable : Query<(&Transform, &Sprite)>) {
-    clear_background(WHITE);
-    for (transform, sprite) in drawable {
-        //TODO: Add custom drawing of images
-        draw_rectangle_ex(
-            transform.position.x,
-            transform.position.y,
-            transform.scale.x * sprite.custom_size.unwrap().x,
-            transform.scale.y * sprite.custom_size.unwrap().y,
-            DrawRectangleParams {
-                offset: Vec2::ZERO.into(),
-                rotation: transform.rotation,
-                color: (&sprite.color).into(),
-            }
-        );
-    }
-    draw_fps();
+fn initiate_loading_for_sprites_with_lazy_handle(
+    drawable: Query<&Sprite>,
+    asset_server : &AssetServer
+) {
+    drawable
+        .iter()
+        .filter_map(|sprite| 
+            sprite.texture.is_lazy().then(|| sprite.texture.path())
+        )
+        .for_each(|path| { asset_server.finally_load::<Image>(path); }); 
 }
 
+fn render(
+    drawable: Query<(&Transform, &Sprite)>,
+    temp_storage: &TempQuadImageStorage
+) {
+    //TODO:macroquad
+    macroquad::window::clear_background(macroquad::color::WHITE);
+    for (transform, sprite) in drawable {
+        if let Some(texture) = temp_storage.get(sprite.texture.index()) {
+            draw_with_image(transform, sprite, texture);
+        } else {
+            if sprite.custom_size.is_some() {
+                draw_with_custom_size(transform, sprite);
+            } else {
+                draw_else(transform, sprite);
+            }
+        }
+    }
+}
+
+fn draw_with_image(
+    transform: &Transform,
+    sprite: &Sprite,
+    texture: &macroquad::texture::Texture2D,
+) {
+    macroquad::texture::draw_texture_ex(
+        texture,
+        transform.position.x,
+        transform.position.y,
+        (&sprite.color).into(),
+        macroquad::texture::DrawTextureParams {
+            dest_size: sprite
+                .custom_size
+                .map(|v| v.mult_by(transform.scale).into()),
+            source: sprite.rect.map(|r| r.into()),
+            rotation: transform.rotation,
+            flip_x: sprite.flip_x,
+            flip_y: sprite.flip_y,
+            pivot: None,
+        },
+    );
+}
+
+fn draw_with_custom_size(transform: &Transform, sprite: &Sprite) {
+    //TODO:macroquad
+    macroquad::shapes::draw_rectangle_ex(
+        transform.position.x,
+        transform.position.y,
+        transform.scale.x * sprite.custom_size.unwrap().x,
+        transform.scale.y * sprite.custom_size.unwrap().y,
+        macroquad::shapes::DrawRectangleParams {
+            offset: Vec2::ZERO.into(),
+            rotation: transform.rotation,
+            color: (&sprite.color).into(),
+        },
+    );
+}
+
+fn draw_else(_transform: &Transform, _sprite: &Sprite) {
+    //TODO:macroquad
+    // macroquad::shapes::draw_rectangle_ex(
+    //     transform.position.x,
+    //     transform.position.y,
+    //     transform.scale.x * sprite.custom_size.unwrap().x,
+    //     transform.scale.y * sprite.custom_size.unwrap().y,
+    //     macroquad::shapes::DrawRectangleParams {
+    //         offset: Vec2::ZERO.into(),
+    //         rotation: transform.rotation,
+    //         color: (&sprite.color).into(),
+    //     }
+    // );
+}
 
 // pub fn draw_texture_ex(
 //     texture: &Texture2D,

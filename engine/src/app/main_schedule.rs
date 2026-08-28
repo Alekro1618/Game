@@ -1,4 +1,3 @@
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum ScheduleLabel {
     #[default]
@@ -88,7 +87,7 @@ pub enum ScheduleLabel {
     ///
     /// See the [`FixedUpdate`] schedule for examples of systems that *should not* use this schedule.
     /// See the [`Main`] schedule for some details about how schedules are run.
-    Update,   
+    Update,
     /// The schedule that contains scene spawning.
     ///
     /// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
@@ -107,52 +106,49 @@ pub enum ScheduleLabel {
     /// See the [`Main`] schedule for some details about how schedules are run.
     Last,
     /// Animation system set. This exists in [`PostUpdate`].
-    AnimationSystems
+    AnimationSystems,
 }
 
 impl ScheduleLabel {
-    pub const ALL : [ScheduleLabel; 18] = [
-        ScheduleLabel::Main, 
+    pub const ALL: [ScheduleLabel; 18] = [
+        ScheduleLabel::Main,
         ScheduleLabel::PreStartup,
-        ScheduleLabel::Startup, 
+        ScheduleLabel::Startup,
         ScheduleLabel::PostStartup,
-        ScheduleLabel::First, 
+        ScheduleLabel::First,
         ScheduleLabel::PreUpdate,
-        ScheduleLabel::RunFixedMainLoop, 
+        ScheduleLabel::RunFixedMainLoop,
         ScheduleLabel::FixedFirst,
-        ScheduleLabel::FixedPreUpdate, 
+        ScheduleLabel::FixedPreUpdate,
         ScheduleLabel::FixedUpdate,
-        ScheduleLabel::FixedPostUpdate, 
+        ScheduleLabel::FixedPostUpdate,
         ScheduleLabel::FixedLast,
-        ScheduleLabel::FixedMain, 
+        ScheduleLabel::FixedMain,
         ScheduleLabel::Update,
-        ScheduleLabel::SpawnScene, 
+        ScheduleLabel::SpawnScene,
         ScheduleLabel::PostUpdate,
-        ScheduleLabel::Last, 
-        ScheduleLabel::AnimationSystems
+        ScheduleLabel::Last,
+        ScheduleLabel::AnimationSystems,
     ];
-    pub const PER_FRAME : [ScheduleLabel; 9] = [
+    pub const PER_FRAME: [ScheduleLabel; 9] = [
         ScheduleLabel::PreUpdate,
-        ScheduleLabel::RunFixedMainLoop, 
+        ScheduleLabel::RunFixedMainLoop,
         ScheduleLabel::FixedFirst,
-        ScheduleLabel::FixedPreUpdate, 
+        ScheduleLabel::FixedPreUpdate,
         ScheduleLabel::FixedUpdate,
-        ScheduleLabel::FixedPostUpdate, 
+        ScheduleLabel::FixedPostUpdate,
         ScheduleLabel::Update,
         ScheduleLabel::PostUpdate,
-        ScheduleLabel::AnimationSystems
+        ScheduleLabel::AnimationSystems,
     ];
 
-    pub const START_UP : [ScheduleLabel; 5] = [
+    pub const START_UP: [ScheduleLabel; 5] = [
         ScheduleLabel::PreStartup,
-        ScheduleLabel::Startup, 
+        ScheduleLabel::Startup,
         ScheduleLabel::PostStartup,
-        ScheduleLabel::First, 
-        ScheduleLabel::SpawnScene, 
+        ScheduleLabel::First,
+        ScheduleLabel::SpawnScene,
     ];
 
-    pub const LAST : [ScheduleLabel; 2] = [
-        ScheduleLabel::FixedLast,
-        ScheduleLabel::Last
-    ];
+    pub const LAST: [ScheduleLabel; 2] = [ScheduleLabel::FixedLast, ScheduleLabel::Last];
 }

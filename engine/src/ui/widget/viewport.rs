@@ -1,8 +1,9 @@
-use crate::ecs::{components::{Component, Mutable, StorageType}, entities::id::EntityId};
+use crate::ecs::{
+    components::{Component, Mutable, StorageType},
+    entities::id::EntityId,
+};
 
-
-
-#[derive( Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct ViewportNode {
     pub camera: Option<EntityId>,
 }

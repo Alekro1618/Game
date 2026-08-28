@@ -1,6 +1,14 @@
-use std::{any::{TypeId}, iter};
+use std::{any::TypeId, iter};
 
-use crate::ecs::{bundle::Bundle, change_detection::tick::Tick, components::{Component, id::{ComponentId, ComponentIdsArray}, register::{ComponentsRegistrator}}};
+use crate::ecs::{
+    bundle::Bundle,
+    change_detection::tick::Tick,
+    components::{
+        Component,
+        id::{ComponentId, ComponentIdsArray},
+        register::ComponentsRegistrator,
+    },
+};
 
 #[derive(Debug, Default)]
 pub struct Bundles {
@@ -15,6 +23,44 @@ impl Bundles {
     }
 }
 
+impl<A: Component> Bundle for A {
+    fn component_ids(
+        components: &mut ComponentsRegistrator,
+    ) -> impl Iterator<Item = (TypeId, ComponentId)> + use<A> {
+        iter::once((TypeId::of::<A>(), components.register_component::<A>()))
+    }
+
+    fn insert_into_table(
+        self,
+        components: &ComponentIdsArray,
+        table: &mut crate::ecs::storage::Table,
+        tick: Tick,
+    ) {
+        let component_id = components.get(TypeId::of::<A>()).unwrap();
+        table.insert(component_id, self, tick);
+    }
+
+    fn replace_in_table(
+        self,
+        components: &ComponentIdsArray,
+        table: &mut crate::ecs::storage::Table,
+        row: usize,
+        tick: Tick,
+    ) {
+        let component_id = components.get(TypeId::of::<A>()).unwrap();
+        table.replace(component_id, self, row, tick);
+    }
+
+    fn remove_from_table(
+        components: &ComponentIdsArray,
+        table: &mut crate::ecs::storage::Table,
+        row: usize,
+        tick: Tick,
+    ) {
+        let component_id = components.get(TypeId::of::<A>()).unwrap();
+        table.remove(component_id, row, tick);
+    }
+}
 
 #[macro_export]
 macro_rules! impl_bundle_for_tuple {
@@ -65,7 +111,7 @@ macro_rules! impl_bundle_for_tuple {
             ) {
                 $(
                     let component_id = components.get(TypeId::of::<$comp>()).unwrap();
-                    table.remove::<$comp>(component_id, row, tick);
+                    table.remove(component_id, row, tick);
                 )+
             }
         }
@@ -80,3 +126,7 @@ impl_bundle_for_tuple!(A, B, C, D, E);
 impl_bundle_for_tuple!(A, B, C, D, E, F);
 impl_bundle_for_tuple!(A, B, C, D, E, F, G);
 impl_bundle_for_tuple!(A, B, C, D, E, F, G, H);
+impl_bundle_for_tuple!(A, B, C, D, E, F, G, H, I);
+impl_bundle_for_tuple!(A, B, C, D, E, F, G, H, I, J);
+impl_bundle_for_tuple!(A, B, C, D, E, F, G, H, I, J, K);
+impl_bundle_for_tuple!(A, B, C, D, E, F, G, H, I, J, K, L);

@@ -1,8 +1,14 @@
-use std::{collections::{HashMap}};
+use std::collections::HashMap;
 
-use crate::{app::{App, main_schedule::ScheduleLabel}, asset::asset::{Asset, Assets}, ecs::{event::Event, message::Message, observer::distributed_storage::IntoObserver, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::World}, window::Window};
-
-
+use crate::{
+    app::{App, main_schedule::ScheduleLabel}, asset::{
+        AssetServer,
+        asset::{Asset, Assets},
+        loader::AssetLoader,
+    }, ecs::{
+        event::Event, message::Message, resource::Resource, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::{FromWorld, World},
+    }, window::Window,
+};
 
 type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
@@ -103,13 +109,30 @@ impl SubApp {
         self.extract.take()
     }
 
-    pub fn add_message<M : Message>(&mut self) -> &mut Self {
+    pub fn insert_resource<R: Resource>(&mut self, resource : R) -> &mut Self {
+        self.world.insert_resource(resource);
+        self
+    }
+
+    pub fn add_message<M: Message>(&mut self) -> &mut Self {
         self.world.add_message::<M>();
         self
     }
 
-    pub fn init_asset<A : Asset>(&mut self) -> &mut Self {
-        self.world.init_resource::<Assets<A>>();
+    pub fn init_asset<A: Asset>(&mut self) -> &mut Self {
+        let assets = Assets::<A>::default();
+        let asset_server = self.world.get_or_init_resource::<AssetServer>();
+        asset_server.register_asset(&assets);
+        self.world.insert_resource(assets);
+
+        self
+    }
+
+    pub fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
+        let asset_loader = L::from_world(&mut self.world);
+        let asset_server = self.world.get_or_init_resource::<AssetServer>();
+        asset_server.register_loader(asset_loader);
+
         self
     }
 
@@ -124,16 +147,16 @@ impl SubApp {
         self
     }
 
-    pub fn set_window(
-        &mut self,
-        window : Window
-    ) -> &mut Self {
+    pub fn set_window(&mut self, window: Window) -> &mut Self {
         let window = window;
         self.world.insert_resource(window);
         self
     }
 
-    pub fn add_observer<E: Event, M>(&mut self, observer: impl IntoObserverSystem<E, M>) -> &mut Self {
+    pub fn add_observer<E: Event, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, M>,
+    ) -> &mut Self {
         self.world.add_observer(observer);
         self
     }
@@ -206,8 +229,7 @@ impl SubApps {
         }
     }
 
-
-     pub fn fixed_update(&mut self) {
+    pub fn fixed_update(&mut self) {
         self.main.fixed_update();
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             sub_app.extract(&mut self.main.world);
@@ -215,8 +237,6 @@ impl SubApps {
             sub_app.extract(&mut self.main.world);
         }
     }
-
-
 
     pub fn end(&mut self) {
         self.main.end();

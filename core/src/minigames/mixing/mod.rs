@@ -46,6 +46,10 @@ impl MiniGame for MixingMinigame {
             
         }
     }
+    
+    fn on_unload(&self, commands : &mut Commands) {
+        todo!()
+    }
 }
 
 fn on_minigame_setup(commands : &mut Commands) {

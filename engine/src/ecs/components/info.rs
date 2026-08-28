@@ -1,6 +1,16 @@
-use std::{alloc::Layout, any::{Any, TypeId}, borrow::Cow, collections::HashMap, mem::needs_drop};
+use std::{
+    alloc::Layout,
+    any::{Any, TypeId},
+    borrow::Cow,
+    collections::HashMap,
+    mem::needs_drop,
+};
 
-use crate::ecs::{components::{Component, StorageType, id::ComponentId, ComponentMutability}, hash::NoOpHash, lifecycle::ComponentHooks};
+use crate::ecs::{
+    components::{Component, ComponentMutability, StorageType, id::ComponentId},
+    hash::NoOpHash,
+    lifecycle::ComponentHooks,
+};
 
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
@@ -54,7 +64,7 @@ impl ComponentInfo {
         ComponentInfo {
             id,
             descriptor,
-            hooks: Default::default()
+            hooks: Default::default(),
         }
     }
 
@@ -70,8 +80,8 @@ pub struct ComponentDescriptor {
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
-    drop: Option<for<'a> unsafe fn(*mut u8)>,//TODO: Change to different pointer 
-    mutable: bool
+    drop: Option<for<'a> unsafe fn(*mut u8)>, //TODO: Change to different pointer
+    mutable: bool,
 }
 
 impl ComponentDescriptor {
@@ -83,22 +93,22 @@ impl ComponentDescriptor {
 
     pub fn new<T: Component>() -> Self {
         Self {
-            name: std::any::type_name::<T>(), 
+            name: std::any::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            mutable: T::Mutability::MUTABLE
+            mutable: T::Mutability::MUTABLE,
         }
     }
-    
+
     pub unsafe fn new_with_layout(
         name: impl Into<&'static str>,
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(*mut u8)>,
-        mutable: bool
+        mutable: bool,
     ) -> Self {
         Self {
             name: name.into(),
@@ -107,7 +117,7 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
-            mutable
+            mutable,
         }
     }
 
@@ -119,7 +129,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            mutable: true
+            mutable: true,
         }
     }
 
@@ -155,7 +165,7 @@ pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
 #[derive(Debug, Default)]
 pub struct Components {
     pub components: Vec<Option<ComponentInfo>>,
-    pub indices: TypeIdMap<ComponentId>
+    pub indices: TypeIdMap<ComponentId>,
 }
 
 impl Components {
@@ -178,20 +188,16 @@ impl Components {
 
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.id as usize).and_then(|info| info.as_ref())
+        self.components
+            .get(id.id as usize)
+            .and_then(|info| info.as_ref())
     }
 
     #[inline]
     pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
             .get(id.id as usize)
-            .and_then(|info| 
-                info
-                    .as_ref()
-                    .map(|info| 
-                        Cow::Borrowed(&info.descriptor)
-                    )
-                )
+            .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
     }
 
     #[inline]
@@ -216,7 +222,9 @@ impl Components {
 
     #[inline]
     pub fn is_id_valid(&self, id: ComponentId) -> bool {
-        self.components.get(id.id as usize).is_some_and(Option::is_some)
+        self.components
+            .get(id.id as usize)
+            .is_some_and(Option::is_some)
     }
 
     #[inline]
@@ -226,9 +234,7 @@ impl Components {
 
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied().or_else(|| {
-            None
-        })
+        self.indices.get(&type_id).copied().or_else(|| None)
     }
 
     #[inline]

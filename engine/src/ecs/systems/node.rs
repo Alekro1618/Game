@@ -5,13 +5,11 @@ pub(crate) struct SystemNode {
 }
 
 impl SystemNode {
-    pub fn new( system: ScheduleSystem) -> Self {
-        Self {
-            system
-        }
+    pub fn new(system: ScheduleSystem) -> Self {
+        Self { system }
     }
 
-    pub fn apply(&mut self, world : &mut World) {
+    pub fn apply(&mut self, world: &mut World) {
         self.system.apply(world);
     }
 }

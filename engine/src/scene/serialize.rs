@@ -1,21 +1,19 @@
-use std::result;
 
 use serde::{Serialize, ser::Error};
 
-use crate::ecs::{relfect::Reflect, type_register::{ReflectSerialize, TypeRegistry}};
+use crate::ecs::{
+    reflect::Reflect,
+    type_register::{ReflectSerialize, TypeRegistry},
+};
 
 pub struct TypedReflectSerializer<'a> {
     value: &'a dyn Reflect,
     registry: &'a TypeRegistry,
 }
 
-
 impl<'a> TypedReflectSerializer<'a> {
     pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
-        Self {
-            value,
-            registry,
-        }
+        Self { value, registry }
     }
 }
 
@@ -26,12 +24,12 @@ impl Serialize for TypedReflectSerializer<'_> {
     {
         match try_custom_serialize(self.value, self.registry, serializer) {
             Ok(result) => return result,
-            Err((_, error)) => return Err(error)
+            Err((_, error)) => return Err(error),
         }
     }
 }
 
-fn try_custom_serialize<S : serde::Serializer>(
+fn try_custom_serialize<S: serde::Serializer>(
     value: &dyn Reflect,
     type_registry: &TypeRegistry,
     serializer: S,
@@ -39,7 +37,10 @@ fn try_custom_serialize<S : serde::Serializer>(
     let Some(registration) = type_registry.get(value.type_id()) else {
         return Err((
             serializer,
-            Error::custom(format!("Type {} wasn't registred. Unable to do serialization.", value.name()))
+            Error::custom(format!(
+                "Type {} wasn't registred. Unable to do serialization.",
+                value.name()
+            )),
         ));
     };
 
@@ -47,12 +48,14 @@ fn try_custom_serialize<S : serde::Serializer>(
         Ok(reflect_serialize.serialize(value, serializer))
     } else {
         Err((
-            serializer, 
-            Error::custom(format!("Type {} doesn't contain serialization.", value.name()))
+            serializer,
+            Error::custom(format!(
+                "Type {} doesn't contain serialization.",
+                value.name()
+            )),
         ))
     }
 }
-
 
 // pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 // where

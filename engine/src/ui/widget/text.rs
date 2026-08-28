@@ -1,5 +1,7 @@
-use crate::ecs::components::{Component, Mutable, StorageType};
-
+use crate::{
+    ecs::components::{Component, Mutable, StorageType},
+    render::color::Color,
+};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Text(pub String);
@@ -27,4 +29,22 @@ impl From<String> for Text {
     fn from(value: String) -> Self {
         Self(value)
     }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct TextSize(pub f32);
+
+impl Component for TextSize {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    type Mutability = Mutable;
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct TextColor(pub Color);
+
+impl Component for TextColor {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    type Mutability = Mutable;
 }

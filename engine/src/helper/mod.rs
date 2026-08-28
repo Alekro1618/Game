@@ -1,3 +1,4 @@
 pub mod color;
-pub mod math;
+pub mod image;
 pub mod keycode;
+pub mod math;

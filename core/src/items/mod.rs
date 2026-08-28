@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, process::Command};
 
-use engine::{app::plugin::Plugin, ecs::{entities::id::EntityId, message::{Message, message_reader::MessageReader}, observer::system_param::On, systems::{commands::Commands, function_system::F2, query::Query}}};
+use engine::{app::plugin::Plugin, ecs::{entities::id::EntityId, message::{Message, message_reader::MessageReader}, observer::system_param::On, systems::{commands::Commands, query::Query}}};
 use engine_macros::{Component, Event, Message};
 
 use crate::items::{food::Food, system::{on_add_to_inventory, on_remove_from_inventory}};
@@ -14,10 +14,10 @@ pub struct InventoryPlugin;
 impl Plugin for InventoryPlugin {
     fn build(self, app:  &mut engine::app::App) {
         app
-            .add_observer::<AddToInventory, F2<On<AddToInventory>, Query<&mut Inventory>>>(
+            .add_observer(
                 on_add_to_inventory
             )
-            .add_observer::<RemoveFromInventory, F2<On<RemoveFromInventory>, Query<&mut Inventory>>>(
+            .add_observer(
                 on_remove_from_inventory
             );
     }

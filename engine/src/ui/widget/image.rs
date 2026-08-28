@@ -1,23 +1,25 @@
-
-use crate::{asset::handle::Handle, ecs::components::{Component, Mutable, StorageType}, image::{BLANK_IMAGE_HANDLE, Image, TRANSPARENT_IMAGE_HANDLE}, math::rect::Rect, render::color::Color};
-
+use crate::{
+    asset::handle::Handle,
+    ecs::components::{Component, Mutable, StorageType},
+    image::{BLANK_IMAGE_HANDLE, Image, TRANSPARENT_IMAGE_HANDLE},
+    math::rect::Rect,
+    render::color::Color,
+};
 
 pub struct ImageNode {
     pub color: Color,
-    pub image:  Handle<Image>,
+    pub image: Handle<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
     pub rect: Option<Rect>,
     pub image_mode: NodeImageMode,
 }
 
-
 impl Component for ImageNode {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     type Mutability = Mutable;
 }
-
 
 impl Default for ImageNode {
     fn default() -> Self {

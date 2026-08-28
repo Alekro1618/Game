@@ -1,13 +1,68 @@
-use std::{collections::HashMap, fmt::Display, sync::{Arc, atomic::AtomicU32}};
+use std::{
+    any::TypeId,
+    collections::HashMap,
+    fmt::Display,
+    sync::{Arc, atomic::AtomicU32},
+};
 
-use crate::{asset::handle::Handle, ecs::{components::{Component, Mutable}, resource::Resource}, error::error::{Error, ErrorKind}};
+use async_channel::{Receiver, Sender, unbounded};
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd,
-)]
+use crate::{
+    asset::handle::{AssetHandleProvider, Handle},
+    ecs::{
+        components::{Component, Mutable},
+        resource::Resource,
+    },
+    error::error::{Error, ErrorKind},
+};
+
+#[derive(Debug)]
+pub(crate) struct AssetIndexAllocator {
+    next_index: Arc<AtomicU32>,
+    recycled_sender: Sender<AssetIndex>,
+    recycled_receiver: Receiver<AssetIndex>,
+}
+
+impl Default for AssetIndexAllocator {
+    fn default() -> Self {
+        let (recycled_sender, recycled_receiver) = unbounded();
+        Self {
+            next_index: Default::default(),
+            recycled_receiver,
+            recycled_sender,
+        }
+    }
+}
+
+impl AssetIndexAllocator {
+    pub fn reserve(&self) -> AssetIndex {
+        match self.recycled_receiver.try_recv() {
+            Ok(next_index) => next_index,
+            Err(_) => AssetIndex {
+                index: self
+                    .next_index
+                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
+                generation: 0,
+            },
+        }
+    }
+
+    pub fn free(&self, mut index: AssetIndex) {
+        index.generation += 1;
+        self.recycled_sender.try_send(index).unwrap();
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct AssetIndex {
     pub(crate) generation: u32,
     pub(crate) index: u32,
+}
+
+impl Into<usize> for AssetIndex {
+    fn into(self) -> usize {
+        self.index as usize
+    }
 }
 
 impl Display for AssetIndex {
@@ -29,32 +84,34 @@ impl AssetIndex {
     }
 }
 
+pub trait Asset: Send + Sync + 'static {}
 
-pub trait Asset : Send + Sync + 'static {}
+impl Asset for () {}
 
-
+impl<A1: Asset, A2: Asset> Asset for (A1, A2) {}
 
 #[derive(Default)]
-enum Entry<A: Asset> {
+pub enum Entry<A: Asset> {
     #[default]
     None,
-    Some { value: Option<A>, generation: u32 },
+    Some {
+        value: Option<A>,
+        generation: u32,
+    },
 }
 
 struct DenseAssetStorage<A: Asset> {
     storage: Vec<Entry<A>>,
     len: u32,
-    free : Vec<AssetIndex>,
-    next : Arc<AtomicU32>
+    allocator: Arc<AssetIndexAllocator>,
 }
 
 impl<A: Asset> Default for DenseAssetStorage<A> {
     fn default() -> Self {
-        Self { 
+        Self {
             storage: Default::default(),
-            free: Vec::new(),
-            len: Default::default(),
-            next: Arc::new(AtomicU32::new(0))
+            len: 0,
+            allocator: Default::default(),
         }
     }
 }
@@ -71,11 +128,8 @@ impl<A: Asset> DenseAssetStorage<A> {
     }
 
     /// Insert the value at the given index. Returns true if a value already exists (and was replaced)
-    pub(crate) fn insert(
-        &mut self,
-        index: AssetIndex,
-        asset: A,
-    ) -> Result<bool, Error> {
+    pub(crate) fn insert(&mut self, index: AssetIndex, asset: A) -> Result<bool, Error> {
+        self.flush();
         let entry = &mut self.storage[index.index as usize];
         if let Entry::Some { value, generation } = entry {
             if *generation == index.generation {
@@ -86,24 +140,16 @@ impl<A: Asset> DenseAssetStorage<A> {
                 *value = Some(asset);
                 Ok(exists)
             } else {
-                Err(Error::new(ErrorKind::Asset, format!("Occupied entry for index {}", index)))
+                Err(Error::new(
+                    ErrorKind::Asset,
+                    format!("Occupied entry for index {}", index),
+                ))
             }
         } else {
-            Err(Error::new(ErrorKind::Asset, format!("No entry for index {}", index)))
-        }
-    }
-
-    pub fn reserve(&mut self) -> AssetIndex {
-        if let Some(mut index) = self.free.pop() {
-            index.generation += 1;
-            index
-        } else {
-            AssetIndex {
-                index: self
-                    .next
-                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
-                generation: 0,
-            }
+            Err(Error::new(
+                ErrorKind::Asset,
+                format!("No entry for index {}", index),
+            ))
         }
     }
 
@@ -126,7 +172,6 @@ impl<A: Asset> DenseAssetStorage<A> {
             Entry::None => return None,
             Entry::Some { value, generation } => {
                 if *generation == index.generation {
-                    self.free.push(index);
                     value.take().inspect(|_| self.len -= 1)
                 } else {
                     return None;
@@ -135,6 +180,14 @@ impl<A: Asset> DenseAssetStorage<A> {
         };
         removed_action(self);
         value
+    }
+
+    pub(crate) fn get_index_allocator(&self) -> Arc<AssetIndexAllocator> {
+        self.allocator.clone()
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &Entry<A>> {
+        self.storage.iter()
     }
 
     pub(crate) fn get(&self, index: AssetIndex) -> Option<&A> {
@@ -151,7 +204,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub(crate) fn contains(&self, index : AssetIndex) -> bool {
+    pub(crate) fn contains(&self, index: AssetIndex) -> bool {
         self.storage.get(index.index as usize).is_some()
     }
 
@@ -168,11 +221,31 @@ impl<A: Asset> DenseAssetStorage<A> {
             }
         }
     }
+
+    pub(crate) fn flush(&mut self) {
+        let new_len = self
+            .allocator
+            .next_index
+            .load(core::sync::atomic::Ordering::Relaxed);
+
+        self.storage.resize_with(new_len as usize, || Entry::Some {
+            value: None,
+            generation: 0,
+        });
+
+        while let Ok(recycled) = self.allocator.recycled_receiver.try_recv() {
+            let entry = &mut self.storage[recycled.index as usize];
+            *entry = Entry::Some {
+                value: None,
+                generation: recycled.generation,
+            };
+        }
+    }
 }
 
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
-    hash_map: HashMap<AssetIndex, A>,
+    handle_provider: AssetHandleProvider,
     duplicate_handles: HashMap<AssetIndex, u16>,
 }
 
@@ -185,56 +258,47 @@ impl<A: Asset> Resource for Assets<A> {}
 impl<A: Asset> Default for Assets<A> {
     fn default() -> Self {
         let dense_storage = DenseAssetStorage::<A>::default();
+        let handle_provider =
+            AssetHandleProvider::new(TypeId::of::<A>(), dense_storage.get_index_allocator());
+
         Self {
             dense_storage,
-            hash_map: Default::default(),
             duplicate_handles: Default::default(),
+            handle_provider,
         }
     }
 }
 
 impl<A: Asset> Assets<A> {
-    pub fn insert(
-        &mut self,
-        index: AssetIndex,
-        asset: A,
-    ) -> Result<(), Error> {
+    pub fn insert(&mut self, index: AssetIndex, asset: A) -> Result<(), Error> {
         self.insert_with_index(index, asset).map(|_| ())
     }
 
-    pub fn contains(&self, index : AssetIndex) -> bool {
+    pub fn contains(&self, index: AssetIndex) -> bool {
         self.dense_storage.contains(index)
     }
 
+    pub fn get_handle_provider(&self) -> AssetHandleProvider {
+        self.handle_provider.clone()
+    }
 
-    pub(crate) fn insert_with_index(
-        &mut self,
-        index: AssetIndex,
-        asset: A,
-    ) -> Result<bool, Error> {
+    pub(crate) fn insert_with_index(&mut self, index: AssetIndex, asset: A) -> Result<bool, Error> {
         let replaced = self.dense_storage.insert(index, asset)?;
         Ok(replaced)
     }
 
     #[inline]
-    pub fn add(&mut self, asset: impl Into<A>) -> Handle<A> {
-        let index = self.dense_storage.reserve();
-        self.insert_with_index(index, asset.into()).unwrap();
-        Handle::new(index)
+    pub fn get(&self, index: AssetIndex) -> Option<&A> {
+        self.dense_storage.get(index)
     }
 
-   #[inline]
-    pub fn get(&self, index : AssetIndex) -> Option<&A> {
-       self.dense_storage.get(index)
-    }
-
-   #[inline]
-    pub fn get_mut(&mut self, index : AssetIndex) -> Option<&mut A> {
+    #[inline]
+    pub fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
         self.dense_storage.get_mut(index)
     }
 
     #[inline]
-    pub fn remove(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove(&mut self, index: AssetIndex) -> Option<A> {
         self.duplicate_handles.remove(&index);
         self.dense_storage.remove_still_alive(index)
     }
@@ -253,11 +317,30 @@ impl<A: Asset> Assets<A> {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.dense_storage.is_empty() && self.hash_map.is_empty()
+        self.dense_storage.is_empty()
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.dense_storage.len() + self.hash_map.len()
+        self.dense_storage.len()
+    }
+
+    #[inline]
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &Entry<A>> {
+        self.dense_storage.iter()
+    }
+
+    #[inline]
+    pub(crate) fn iter_indicies(&self) -> impl Iterator<Item = AssetIndex> {
+        self.dense_storage
+            .iter()
+            .enumerate()
+            .filter_map(|(i, entry)| match entry {
+                Entry::None => None,
+                Entry::Some { value: _, generation } => Some(AssetIndex {
+                    generation: *generation,
+                    index: i as u32,
+                }),
+            })
     }
 }

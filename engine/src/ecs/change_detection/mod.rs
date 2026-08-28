@@ -1,2 +1,2 @@
-pub mod tick;
 pub mod params;
+pub mod tick;

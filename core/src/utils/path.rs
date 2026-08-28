@@ -12,6 +12,7 @@ pub struct Path {
 
 
 impl Path {
+    #[inline]
     pub fn new(pos : impl Into<Point>) -> Self {
         let pos =  pos.into();
         Self { 

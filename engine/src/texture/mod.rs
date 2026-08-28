@@ -1,3 +1,1 @@
-pub struct Texture2D {
-    
-}
+pub struct Texture2D {}

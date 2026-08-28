@@ -1,16 +1,19 @@
-use crate::ecs::{components::{Component, Mutable, StorageType}, message::{Message, MessageInstance, iterator::MessageIterator}, resource::Resource};
-
+use crate::ecs::{
+    components::{Component, Mutable, StorageType},
+    message::{Message, MessageInstance, drain::MessageDrain, iterator::MessageIterator},
+    resource::Resource,
+};
 
 pub struct Messages<M: Message> {
     pub(crate) messages: Vec<MessageInstance<M>>,
 }
 
-impl<M : Message> Component for Messages<M> {
+impl<M: Message> Component for Messages<M> {
     const STORAGE_TYPE: StorageType = StorageType::Table;
     type Mutability = Mutable;
 }
 
-impl<M : Message> Resource for Messages<M> {}
+impl<M: Message> Resource for Messages<M> {}
 
 impl<M: Message> Default for Messages<M> {
     fn default() -> Self {
@@ -31,6 +34,10 @@ impl<M: Message> Messages<M> {
         self.messages.len()
     }
 
+    #[inline]
+    pub fn clear(&mut self) {
+        self.messages.clear();
+    }
     /// Returns true if there are no messages currently stored in the message buffer.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -40,8 +47,14 @@ impl<M: Message> Messages<M> {
     #[inline]
     pub fn iter(&mut self) -> MessageIterator<'_, M> {
         MessageIterator {
-            iter : self.messages.iter()
+            iter: self.messages.iter(),
         }
     }
-    
+
+    #[inline]
+    pub fn drain(&mut self) -> MessageDrain<'_, M> {
+        MessageDrain {
+            iter: self.messages.drain(..),
+        }
+    }
 }

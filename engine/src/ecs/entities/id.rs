@@ -1,13 +1,12 @@
-use std::{fmt::Display};
+use std::fmt::Display;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId {
     id: u32,
     #[serde(skip_serializing)]
-    gnr: u32
+    gnr: u32,
 }
 
 impl Default for EntityId {
@@ -22,9 +21,8 @@ impl Into<u64> for EntityId {
     }
 }
 
-
 impl From<u64> for EntityId {
-    fn from(num : u64) -> Self {
+    fn from(num: u64) -> Self {
         let id = (num >> 32) as u32;
         let gnr = (num & 0xFFFF_FFFF) as u32;
         Self { id, gnr }
@@ -32,13 +30,10 @@ impl From<u64> for EntityId {
 }
 
 impl EntityId {
-    pub const PLACEHOLDER : Self = EntityId { id : 0, gnr : 0};
+    pub const PLACEHOLDER: Self = EntityId { id: 0, gnr: 0 };
 
-    pub fn new(id : u32, gnr : u32) -> Self {
-        Self {
-            id,
-            gnr
-        }
+    pub fn new(id: u32, gnr: u32) -> Self {
+        Self { id, gnr }
     }
 
     #[inline(always)]

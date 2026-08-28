@@ -1,8 +1,15 @@
-
-
 use engine_macros::Component;
 
-use crate::{app::{App, main_schedule::ScheduleLabel}, ecs::{components::{Component, Mutable, StorageType}, systems::{commands::{self, Commands}, query::Query}}};
+use crate::{
+    app::{App, main_schedule::ScheduleLabel},
+    ecs::{
+        components::{Component, Mutable, StorageType},
+        systems::{
+            commands::{self, Commands},
+            query::Query,
+        },
+    },
+};
 
 pub struct T;
 
@@ -11,7 +18,6 @@ impl Component for T {
 
     type Mutability = Mutable;
 }
-
 
 // #[test]
 // async fn test_remove_and_insert() {
@@ -25,7 +31,7 @@ impl Component for T {
 // }
 
 // fn insert(mut commands : Commands, query : Query<>) {
-    
+
 // }
 
 // fn remove(mut commands : Commands) {

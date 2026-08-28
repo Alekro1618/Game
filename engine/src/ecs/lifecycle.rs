@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-use crate::ecs::{components::{Component, id::ComponentId}, entities::{id::EntityId}, worlds::World};
-
-
+use crate::ecs::{
+    components::{Component, id::ComponentId},
+    entities::id::EntityId,
+    worlds::World,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct HookContext {
     pub entity: EntityId,
-    pub component_id: ComponentId
+    pub component_id: ComponentId,
 }
 
 pub struct HookWorld<'w>(&'w mut World);
@@ -63,7 +65,6 @@ impl ComponentHooks {
         self.try_on_insert(hook)
             .expect("Component already has an on_insert hook")
     }
-
 
     pub fn on_discard(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_discard(hook)
@@ -156,14 +157,15 @@ pub struct Despawn {
 #[derive(Debug, Clone)]
 pub struct RemovedComponentEntity(EntityId);
 
-
 pub struct RemovedComponentMessages {
     event_sets: HashMap<ComponentId, Vec<RemovedComponentEntity>>,
 }
 
 impl Default for RemovedComponentMessages {
     fn default() -> Self {
-        Self { event_sets: HashMap::new() }
+        Self {
+            event_sets: HashMap::new(),
+        }
     }
 }
 

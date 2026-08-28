@@ -1,13 +1,22 @@
 use std::collections::HashSet;
 
-use macroquad::input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position};
+use macroquad::input::{
+    is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position,
+};
 
-use crate::{ecs::{change_detection::params::Mut, components::{Component, Mutable, StorageType}, resource::Resource}, input::{ButtonState, button_input::ButtonInput}, math::vec::Vec2};
-
+use crate::{
+    ecs::{
+        change_detection::params::Mut,
+        components::{Component, Mutable, StorageType},
+        resource::Resource,
+    },
+    input::{ButtonState, button_input::ButtonInput},
+    math::vec::Vec2,
+};
 
 pub struct MouseButtonInput {
     pub button: MouseButton,
-    pub state: ButtonState
+    pub state: ButtonState,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -42,7 +51,6 @@ impl Component for MousePos {
 
 impl Resource for MousePos {}
 
-
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
 pub enum MouseScrollUnit {
     Line,
@@ -53,18 +61,16 @@ impl MouseScrollUnit {
     pub const SCROLL_UNIT_CONVERSION_FACTOR: f32 = 100.;
 }
 
-#[derive( Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MouseWheel {
     pub unit: MouseScrollUnit,
     pub x: f32,
-    pub y: f32
+    pub y: f32,
 }
 
-pub fn mouse_button_input_system(
-    mut mouse_button_input: Mut<'_, ButtonInput<MouseButton>>,
-) {
+pub fn mouse_button_input_system(mut mouse_button_input: Mut<'_, ButtonInput<MouseButton>>) {
     mouse_button_input.reset_all();
-    
+
     if is_mouse_button_released(macroquad::input::MouseButton::Left) {
         let mut d = HashSet::new();
         d.insert(MouseButton::Left);
@@ -84,18 +90,16 @@ pub fn mouse_button_input_system(
     }
 }
 
-pub fn mouse_position_system(
-    mut mouse_pos: Mut<'_, MousePos> 
-) {
+pub fn mouse_position_system(mut mouse_pos: Mut<'_, MousePos>) {
     mouse_pos.pos = mouse_position().into();
 }
 
-#[derive( Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct AccumulatedMouseMotion {
     pub delta: Vec2,
 }
 
-#[derive( Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AccumulatedMouseScroll {
     pub unit: MouseScrollUnit,
     pub delta: Vec2,
@@ -109,4 +113,3 @@ impl Default for AccumulatedMouseScroll {
         }
     }
 }
-

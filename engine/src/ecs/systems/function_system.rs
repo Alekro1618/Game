@@ -1,19 +1,25 @@
 use std::{any::type_name, marker::PhantomData};
 
-use crate::ecs::{change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{commands::{Commands, command::CommandQueue}, query::Query, system::System}, worlds::World};
+use crate::ecs::{
+    change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
+        commands::{Commands, command::CommandQueue}, query::Query, system::{System, SystemInput},
+    }, worlds::World,
+};
 
 pub struct FunctionSystem<Marker, In, Out, F>
 where
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<Marker, In = In, Out = Out>,
 {
     func: F,
     name: &'static str,
-    pub state : Option<<F::Param as SystemParamTuple>::State>,
+    pub state: Option<<F::Param as SystemParamTuple>::State>,
     marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
 
-impl<Marker: 'static, In: 'static, Out: 'static, F> System for FunctionSystem<Marker, In, Out, F>
-where F : SystemParamFunction<Marker> {
+impl<Marker: 'static, In: SystemInput + 'static, Out: 'static, F> System for FunctionSystem<Marker, In, Out, F>
+where
+    F: SystemParamFunction<Marker, In = In, Out = Out>,
+{
     type In = In;
 
     type Out = Out;
@@ -30,23 +36,23 @@ where F : SystemParamFunction<Marker> {
         F::Param::apply(self.state.as_mut().unwrap(), world);
     }
 
-    fn run(&mut self, world: &mut World) {
+    fn run(&mut self, input : Self::In, world: &mut World) -> Self::Out {
         let params = unsafe {
             let option = &mut self.state;
-            if let Some(d) = option.as_mut() {
-                F::Param::get_param( option.as_mut().unwrap(), world)
-            }  else {
+            if let Some(_d) = option.as_mut() {
+                F::Param::get_param(option.as_mut().unwrap(), world)
+            } else {
                 panic!("here")
             }
         };
 
-        self.func.run( params);
+        self.func.run(input, params)
     }
 }
 
 impl<Marker, In, Out, F> FunctionSystem<Marker, In, Out, F>
 where
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<Marker, In = In, Out = Out>,
 {
     pub fn new(func: F) -> Self {
         Self {
@@ -57,7 +63,7 @@ where
         }
     }
 
-    pub fn set_state(&mut self, state : Option<<F::Param as SystemParamTuple>::State>) {
+    pub fn set_state(&mut self, state: Option<<F::Param as SystemParamTuple>::State>) {
         self.state = state;
     }
 }
@@ -71,13 +77,18 @@ pub trait SystemParamTuple {
 }
 
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    type In : SystemInput;
+    type Out;
     type Param: SystemParamTuple;
-    fn name() -> &'static str { "" }
+    fn name() -> &'static str {
+        ""
+    }
 
     fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    );
+        &mut self, 
+        input: Self::In, 
+        param_value: <Self::Param as SystemParamTuple>::Item<'_>
+    ) -> Self::Out;
 }
 
 impl SystemParamTuple for () {
@@ -90,10 +101,37 @@ impl SystemParamTuple for () {
     unsafe fn get_param<'w>(_state: &'w mut Self::State, _world: &'w mut World) -> Self::Item<'w> {}
 }
 
+impl<P1> SystemParamTuple for (P1,)
+where
+    P1: SystemParamTuple
+{
+    type State = (P1::State,);
+
+    type Item<'w> = (P1::Item<'w>,);
+
+    fn init_state(world: &mut World) -> Self::State {
+        (P1::init_state(world), )
+    }
+
+    fn apply(state: &mut Self::State, world: &mut World) {
+        P1::apply(&mut state.0, world);
+    }
+
+    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+        let world_ptr: *mut World = world;
+        unsafe {
+            (
+                P1::get_param(&mut state.0, world_ptr.as_mut().unwrap()),
+            )
+        }
+    }
+}
+
 impl<P1, P2> SystemParamTuple for (P1, P2)
-where 
+where
     P1: SystemParamTuple,
-    P2: SystemParamTuple {
+    P2: SystemParamTuple,
+{
     type State = (P1::State, P2::State);
 
     type Item<'w> = (P1::Item<'w>, P2::Item<'w>);
@@ -112,23 +150,28 @@ where
         unsafe {
             (
                 P1::get_param(&mut state.0, world_ptr.as_mut().unwrap()),
-                P2::get_param(&mut state.1, world_ptr.as_mut().unwrap())
+                P2::get_param(&mut state.1, world_ptr.as_mut().unwrap()),
             )
         }
     }
 }
 
 impl<P1, P2, P3> SystemParamTuple for (P1, P2, P3)
-where 
+where
     P1: SystemParamTuple,
     P2: SystemParamTuple,
-    P3: SystemParamTuple, {
+    P3: SystemParamTuple,
+{
     type State = (P1::State, P2::State, P3::State);
 
     type Item<'w> = (P1::Item<'w>, P2::Item<'w>, P3::Item<'w>);
 
     fn init_state(world: &mut World) -> Self::State {
-        (P1::init_state(world), P2::init_state(world), P3::init_state(world))
+        (
+            P1::init_state(world),
+            P2::init_state(world),
+            P3::init_state(world),
+        )
     }
 
     fn apply(state: &mut Self::State, world: &mut World) {
@@ -143,24 +186,30 @@ where
             (
                 P1::get_param(&mut state.0, world_ptr.as_mut().unwrap()),
                 P2::get_param(&mut state.1, world_ptr.as_mut().unwrap()),
-                P3::get_param(&mut state.2, world_ptr.as_mut().unwrap())
+                P3::get_param(&mut state.2, world_ptr.as_mut().unwrap()),
             )
         }
     }
 }
 
 impl<P1, P2, P3, P4> SystemParamTuple for (P1, P2, P3, P4)
-where 
+where
     P1: SystemParamTuple,
     P2: SystemParamTuple,
     P3: SystemParamTuple,
-    P4: SystemParamTuple, {
+    P4: SystemParamTuple,
+{
     type State = (P1::State, P2::State, P3::State, P4::State);
 
     type Item<'w> = (P1::Item<'w>, P2::Item<'w>, P3::Item<'w>, P4::Item<'w>);
 
     fn init_state(world: &mut World) -> Self::State {
-        (P1::init_state(world), P2::init_state(world), P3::init_state(world), P4::init_state(world))
+        (
+            P1::init_state(world),
+            P2::init_state(world),
+            P3::init_state(world),
+            P4::init_state(world),
+        )
     }
 
     fn apply(state: &mut Self::State, world: &mut World) {
@@ -184,18 +233,31 @@ where
 }
 
 impl<P1, P2, P3, P4, P5> SystemParamTuple for (P1, P2, P3, P4, P5)
-where 
+where
     P1: SystemParamTuple,
     P2: SystemParamTuple,
     P3: SystemParamTuple,
     P4: SystemParamTuple,
-    P5: SystemParamTuple, {
+    P5: SystemParamTuple,
+{
     type State = (P1::State, P2::State, P3::State, P4::State, P5::State);
 
-    type Item<'w> = (P1::Item<'w>, P2::Item<'w>, P3::Item<'w>, P4::Item<'w>, P5::Item<'w>);
+    type Item<'w> = (
+        P1::Item<'w>,
+        P2::Item<'w>,
+        P3::Item<'w>,
+        P4::Item<'w>,
+        P5::Item<'w>,
+    );
 
     fn init_state(world: &mut World) -> Self::State {
-        (P1::init_state(world), P2::init_state(world), P3::init_state(world), P4::init_state(world), P5::init_state(world))
+        (
+            P1::init_state(world),
+            P2::init_state(world),
+            P3::init_state(world),
+            P4::init_state(world),
+            P5::init_state(world),
+        )
     }
 
     fn apply(state: &mut Self::State, world: &mut World) {
@@ -206,7 +268,6 @@ where
         P5::apply(&mut state.4, world);
     }
 
-
     unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
         let world_ptr: *mut World = world;
         unsafe {
@@ -215,26 +276,48 @@ where
                 P2::get_param(&mut state.1, world_ptr.as_mut().unwrap()),
                 P3::get_param(&mut state.2, world_ptr.as_mut().unwrap()),
                 P4::get_param(&mut state.3, world_ptr.as_mut().unwrap()),
-                P5::get_param(&mut state.4, world_ptr.as_mut().unwrap())
+                P5::get_param(&mut state.4, world_ptr.as_mut().unwrap()),
             )
         }
     }
 }
 
 impl<P1, P2, P3, P4, P5, P6> SystemParamTuple for (P1, P2, P3, P4, P5, P6)
-where 
+where
     P1: SystemParamTuple,
     P2: SystemParamTuple,
     P3: SystemParamTuple,
     P4: SystemParamTuple,
     P5: SystemParamTuple,
-    P6: SystemParamTuple {
-    type State = (P1::State, P2::State, P3::State, P4::State, P5::State, P6::State);
+    P6: SystemParamTuple,
+{
+    type State = (
+        P1::State,
+        P2::State,
+        P3::State,
+        P4::State,
+        P5::State,
+        P6::State,
+    );
 
-    type Item<'w> = (P1::Item<'w>, P2::Item<'w>, P3::Item<'w>, P4::Item<'w>, P5::Item<'w>, P6::Item<'w>);
+    type Item<'w> = (
+        P1::Item<'w>,
+        P2::Item<'w>,
+        P3::Item<'w>,
+        P4::Item<'w>,
+        P5::Item<'w>,
+        P6::Item<'w>,
+    );
 
     fn init_state(world: &mut World) -> Self::State {
-        (P1::init_state(world), P2::init_state(world), P3::init_state(world), P4::init_state(world), P5::init_state(world), P6::init_state(world))
+        (
+            P1::init_state(world),
+            P2::init_state(world),
+            P3::init_state(world),
+            P4::init_state(world),
+            P5::init_state(world),
+            P6::init_state(world),
+        )
     }
 
     fn apply(state: &mut Self::State, world: &mut World) {
@@ -255,13 +338,37 @@ where
                 P3::get_param(&mut state.2, world_ptr.as_mut().unwrap()),
                 P4::get_param(&mut state.3, world_ptr.as_mut().unwrap()),
                 P5::get_param(&mut state.4, world_ptr.as_mut().unwrap()),
-                P6::get_param(&mut state.5, world_ptr.as_mut().unwrap())
+                P6::get_param(&mut state.5, world_ptr.as_mut().unwrap()),
             )
         }
     }
 }
 
-impl<R : Resource + Default> SystemParamTuple for &R {
+impl SystemParamTuple for &World {
+    type State = ();
+
+    type Item<'w> = &'w World;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+        world
+    }
+}
+
+impl SystemParamTuple for Mut<'_, World> {
+    type State = ();
+
+    type Item<'w> = Mut<'w, World>;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+        Mut { value: world }
+    }
+}
+
+impl<R: Resource + Default> SystemParamTuple for &R {
     type State = ();
 
     type Item<'w> = &'w R;
@@ -269,21 +376,21 @@ impl<R : Resource + Default> SystemParamTuple for &R {
     fn init_state(world: &mut World) -> Self::State {
         world.init_resource::<R>();
     }
-    
+
     unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
         world.get_resource::<R>().unwrap()
     }
 }
 
-impl<R : Resource + Default> SystemParamTuple for &mut R {
+impl<R: Resource + Default> SystemParamTuple for Mut<'_, R> {
     type State = ();
 
     type Item<'w> = Mut<'w, R>;
-    
+
     fn init_state(world: &mut World) -> Self::State {
         world.init_resource::<R>();
     }
-    
+
     unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
         world.get_resource_mut::<R>().unwrap()
     }
@@ -307,7 +414,7 @@ impl SystemParamTuple for Commands<'_> {
     }
 }
 
-impl<D : QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Query<'_, '_, D, F> {
+impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Query<'_, '_, D, F> {
     type State = QueryState<D, F>;
 
     type Item<'w> = Query<'w, 'w, D, F>;
@@ -321,156 +428,220 @@ impl<D : QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Que
     }
 }
 
-pub struct F0;
-pub struct F1<P1>(PhantomData<P1>);
-pub struct F2<P1, P2>(PhantomData<(P1, P2)>);
-pub struct F3<P1, P2, P3>(PhantomData<(P1, P2, P3)>);
-pub struct F4<P1, P2, P3, P4>(PhantomData<(P1, P2, P3, P4)>);
-pub struct F5<P1, P2, P3, P4, P5>(PhantomData<(P1, P2, P3, P4, P5)>);
-pub struct F6<P1, P2, P3, P4, P5, P6>(PhantomData<(P1, P2, P3, P4, P4, P5, P6)>);
+pub struct HasSystemInput;
+
+macro_rules! impl_system_function {
+    ($($param: ident),*) => {
+        impl<$($param: SystemParamTuple),*, Func, Out> SystemParamFunction<fn($($param,)+) -> Out> for Func
+        where
+            Func: Send + Sync + 'static,
+            for<'w> &'w mut Func: FnMut($($param,)+) -> Out +
+            FnMut($(<$param as SystemParamTuple>::Item<'_>,)+) -> Out,
+            Out: 'static
+        {
+            type In = ();
+            type Out = Out;
+            type Param = ($($param,)*);
+
+            fn name() -> &'static str {
+                type_name::<Func>()
+            }
+
+            fn run(&mut self, _input: Self::In, param_value: <Self::Param as SystemParamTuple>::Item<'_>) -> Self::Out {
+                fn call_inner<Out, $($param,)*>(
+                    mut f: impl FnMut($($param,)*)->Out,
+                    $($param: $param,)*
+                )->Out{
+                    f($($param,)*)
+                }
+                let ($($param,)+) = param_value;
+                call_inner(self, $($param),+)
+            }
+        }
+
+        impl<$($param: SystemParamTuple),*, Func, In, Out> SystemParamFunction<(HasSystemInput, fn(In, $($param,)+) -> Out)> for Func
+        where
+            Func: Send + Sync + 'static,
+            for<'w> &'w mut Func: FnMut(In, $($param,)+) -> Out +
+            FnMut(In, $(<$param as SystemParamTuple>::Item<'_>,)+) -> Out,
+            In : SystemInput,
+            Out: 'static
+        {
+            type In = In;
+            type Out = Out;
+            type Param = ($($param,)*);
+
+            fn name() -> &'static str {
+                type_name::<Func>()
+            }
+         
+            fn run(&mut self, input: Self::In, param_value:  <Self::Param as SystemParamTuple>::Item<'_>) -> Out {
+                fn call_inner<In : SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
+                    mut f: impl FnMut(In, $($param,)*)->Out,
+                    input: In,
+                    $($param: $param,)*
+                )->Out{
+                    f(input, $($param,)*)
+                }
+                let ($($param,)*) = param_value;
+                call_inner(PhantomData::<In>, self, input, $($param),*)
+            }
+        }
+    };
+}
 
 
-impl<F> SystemParamFunction<F0> for F
-where F : Send + Sync + 'static + Fn() -> () {
+impl<Func, Out> SystemParamFunction<fn() -> Out> for Func
+where
+    Func: Send + Sync + 'static,
+    for<'w> &'w mut Func: FnMut() -> Out,
+    Out: 'static
+{
+    type In = ();
+    type Out = Out;
     type Param = ();
 
     fn name() -> &'static str {
-        type_name::<F>()
+        type_name::<Func>()
     }
 
-    fn run(
-        &mut self,
-        _param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self()
-    }
-}
-
-impl<P1, F> SystemParamFunction<F1<P1>> for F
-where 
-    F : Send + Sync + 'static + Fn(P1::Item<'_>) -> (),
-    P1 : SystemParamTuple
-    {
-    type Param = P1;
-
-    fn name() -> &'static str {
-        type_name::<F>()
-    }
-
-    fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self(param_value)
+    fn run(&mut self, _input : Self::In, _param_value: <Self::Param as SystemParamTuple>::Item<'_>) -> Self::Out {
+        fn call_inner<Out>(
+            mut f: impl FnMut()->Out
+        )->Out{
+            f()
+        }
+        call_inner(self)
     }
 }
 
-impl<P1, P2, F> SystemParamFunction<F2<P1, P2>> for F
-where 
-    F : Send + Sync + 'static + Fn(P1::Item<'_>, P2::Item<'_>) -> (),
-    P1 : SystemParamTuple,
-    P2 : SystemParamTuple
-    {
-    type Param = (P1, P2);
+impl<In : SystemInput, Out, Func> SystemParamFunction<(HasSystemInput, fn(In) -> Out)> for Func
+where
+    Func: Send + Sync + 'static,
+    for<'w> &'w mut Func: FnMut(In) -> Out,
+    Out: 'static
+{
+    type In = In;
+    type Out = Out;
+    type Param = ();
 
     fn name() -> &'static str {
-        type_name::<F>()
+        type_name::<Func>()
     }
 
-    fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self(param_value.0, param_value.1)
+    fn run(&mut self, input : Self::In, _param_value: <Self::Param as SystemParamTuple>::Item<'_>) -> Self::Out {
+        fn call_inner<In : SystemInput, Out>(
+            _: PhantomData<In>,
+            mut f: impl FnMut(In)->Out,
+            input: In
+        ) -> Out {
+            f(input)
+        }
+        call_inner(PhantomData::<In>, self, input)
     }
 }
 
-impl<P1, P2, P3, F> SystemParamFunction<F3<P1, P2, P3>> for F
-where 
-    F : Send + Sync + 'static + Fn(P1::Item<'_>, P2::Item<'_>, P3::Item<'_>) -> (),
-    P1 : SystemParamTuple,
-    P2 : SystemParamTuple,
-    P3 : SystemParamTuple
-    {
-    type Param = (P1, P2, P3);
 
-    fn name() -> &'static str {
-        type_name::<F>()
+impl_system_function!(A);
+impl_system_function!(A, B);
+impl_system_function!(A, B, C);
+impl_system_function!(A, B, C, D);
+impl_system_function!(A, B, C, D, E);
+impl_system_function!(A, B, C, D, E, F);
+
+
+#[cfg(test)]
+mod test {
+    use std::marker::PhantomData;
+
+use crate::ecs::{event::Event, observer::system_param::On, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::{IntoSystem, function_system::{SystemParamFunction, SystemParamTuple}, observer_system::IntoObserverSystem}};
+
+
+    pub struct Test;
+
+    impl Event for Test{}
+
+    pub struct SomeWraper<'w, M>(PhantomData<&'w M>);
+
+    macro_rules! impl_system_param {
+        ($param: ident) => {
+            pub struct $param;
+
+            impl SystemParamTuple for $param {
+                type State = ();
+            
+                type Item<'w> = $param;
+            
+                fn init_state(_world: &mut crate::ecs::worlds::World) -> Self::State {
+                    ()
+                }
+            
+                unsafe fn get_param<'w>(_state: &'w mut Self::State, _world: &'w mut crate::ecs::worlds::World) -> Self::Item<'w> {
+                    todo!()
+                }
+            }
+        };
     }
 
-    fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self(param_value.0, param_value.1, param_value.2)
-    }
-}
+    impl_system_param!(A);
+    impl_system_param!(B);
+    impl_system_param!(C);
+    impl_system_param!(D);
+    impl_system_param!(E);
+    impl_system_param!(F);
 
-impl<P1, P2, P3, P4, F> SystemParamFunction<F4<P1, P2, P3, P4>> for F
-where 
-    F : Send + Sync + 'static + Fn(P1::Item<'_>, P2::Item<'_>, P3::Item<'_>, P4::Item<'_>) -> (),
-    P1 : SystemParamTuple,
-    P2 : SystemParamTuple,
-    P3 : SystemParamTuple,
-    P4 : SystemParamTuple,
-    {
-    type Param = (P1, P2, P3, P4);
-
-    fn name() -> &'static str {
-        type_name::<F>()
+    macro_rules! empty_fun  {
+        ($name:ident, $params:tt) => {
+            fn $name $params {
+                
+            }
+        };
     }
 
-    fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self(param_value.0, param_value.1, param_value.2, param_value.3)
-    }
-}
+    empty_fun!(no_params, ());
+    empty_fun!(one_param, (a: A));
+    empty_fun!(two_params, (a: A, b: B));
+    empty_fun!(three_params, (a : A, b: B, c: C));
+    empty_fun!(four_params, (a : A, b: B, c: C, d: D));
+    empty_fun!(five_params, (a :A, b: B, c: C, d: D, e : E));
+    empty_fun!(six_params, (a : A, b: B, c: C, d: D, e : E, f : F));
+    empty_fun!(no_params_input, (on : On<Test>));
+    empty_fun!(one_param_input, (on : On<Test>, a: A));
+    empty_fun!(two_params_input, (on : On<Test>, a: A, b: B));
+    empty_fun!(three_params_input, (on : On<Test>, a : A, b: B, c: C));
+    empty_fun!(four_params_input, (on : On<Test>, a : A, b: B, c: C, d: D));
+    empty_fun!(five_params_input, (on : On<Test>, a : A, b: B, c: C, d: D, e : E));
+    empty_fun!(six_params_input, (on : On<Test>, a : A, b: B, c: C, d: D, e : E, f : F));
 
-impl<P1, P2, P3, P4, P5, F> SystemParamFunction<F5<P1, P2, P3, P4, P5>> for F
-where 
-    F : Send + Sync + 'static + Fn(P1::Item<'_>, P2::Item<'_>, P3::Item<'_>, P4::Item<'_>, P5::Item<'_>) -> (),
-    P1 : SystemParamTuple,
-    P2 : SystemParamTuple,
-    P3 : SystemParamTuple,
-    P4 : SystemParamTuple,
-    P5 : SystemParamTuple,
-    {
-    type Param = (P1, P2, P3, P4, P5);
-
-    fn name() -> &'static str {
-        type_name::<F>()
-    }
-
-    fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self(param_value.0, param_value.1, param_value.2, param_value.3, param_value.4)
-    }
-}
-
-impl<P1, P2, P3, P4, P5, P6, F> SystemParamFunction<F6<P1, P2, P3, P4, P5, P6>> for F
-where 
-    F : Send + Sync + 'static + Fn(P1::Item<'_>, P2::Item<'_>, P3::Item<'_>, P4::Item<'_>, P5::Item<'_>, P6::Item<'_>) -> (),
-    P1 : SystemParamTuple,
-    P2 : SystemParamTuple,
-    P3 : SystemParamTuple,
-    P4 : SystemParamTuple,
-    P5 : SystemParamTuple,
-    P6 : SystemParamTuple,
-    {
-    type Param = (P1, P2, P3, P4, P5, P6);
-
-    fn name() -> &'static str {
-        type_name::<F>()
+    #[test]
+    fn test_if_functions_implement_into_system() {
+        system_param_function(no_params);
+        system_param_function(one_param);
+        system_param_function(two_params);
+        system_param_function(three_params);
+        system_param_function(four_params);
+        system_param_function(five_params);
+        system_param_function(six_params);
     }
 
-    fn run(
-        &mut self,
-        param_value: <Self::Param as SystemParamTuple>::Item<'_>,
-    ) {
-        self(param_value.0, param_value.1, param_value.2, param_value.3, param_value.4, param_value.5)
+    #[test]
+    fn test_if_functions_implement_into_observer() {
+        observer(no_params_input);
+        observer(one_param_input);
+        observer(two_params_input);
+        observer(three_params_input);
+        observer(four_params_input);
+        observer(five_params_input);
+        observer(six_params_input);
+    }
+
+
+    fn system_param_function<Marker>(fun : impl IntoSystem<(), (), Marker>) {
+        let _ = fun;
+    }
+
+    fn observer<E : Event, Marker>(fun : impl IntoObserverSystem<E, Marker>) {
+        let _ = fun;
     }
 }

@@ -1,4 +1,8 @@
-use crate::ecs::{archetype::ArchetypeId, query::{fetch::QueryData, filter::QueryFilter, iter::QueryIter}, systems::query::{Query}, worlds::World};
+use crate::ecs::{
+    query::{fetch::QueryData, filter::QueryFilter, iter::QueryIter},
+    systems::query::Query,
+    worlds::World,
+};
 
 #[allow(dead_code)]
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
@@ -11,7 +15,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
-        Self{ fetch_state, filter_state }
+        Self {
+            fetch_state,
+            filter_state,
+        }
     }
 
     pub fn new(world: &mut World) -> Self {
@@ -23,7 +30,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn iter<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
         self.query(world).iter_inner()
     }
- 
+
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
         self.query_mut(world).iter_inner()
@@ -32,15 +39,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn query<'w, 's>(&'s mut self, world: &'w mut World) -> Query<'w, 's, D, F> {
         let last_run = world.last_change_tick();
         let this_run = world.change_tick();
-        
+
         Query::new(world, self, last_run, this_run)
     }
 
     pub fn query_mut<'w, 's>(&'s mut self, world: &'w mut World) -> Query<'w, 's, D, F> {
         let last_run = world.last_change_tick();
         let this_run = world.change_tick();
-        
+
         Query::new(world, self, last_run, this_run)
     }
-
 }

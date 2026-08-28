@@ -1,55 +1,61 @@
-use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{entities::id::EntityId, observer::system_param::On, systems::{commands::Commands, function_system::{F1, F2, F3, F4}, query::Query}}, input::{button_input::ButtonInput, keyboard::KeyCode}, utils::resources::GameSpeed};
+use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{entities::id::EntityId, observer::system_param::On, systems::{commands::Commands, query::Query}}, input::{button_input::ButtonInput, keyboard::KeyCode}, utils::resources::GameSpeed};
 
-use crate::{machines::machine_register::MachineRegister, players::{player::{Command, Disrupt, Interact, PendingAction, Player, PlayerSpeed, SetPath, StepEnd}, player_register::{PlayerRegister, RegisterPlayer}, player_state::PlayerState, player_type::{Client, Enemy, Service}, spawner::{SpawnClient, SpawnEnemy, SpawnService}, systems::{advance_smooth, handle_pending_players, on_client_spawn, on_disrupt, on_enemy_spawn, on_interact, on_register_player, on_service_spawn, on_set_path, on_step_end, register_players}}, utils::grid::{Grid, SmoothToGrid}};
+use crate::{instructions::{events::{ExecuteInstruction, ExecuteStep}, manager::InstructionManager}, machines::{events::{Inputed, Outputed}, register::MachineRegister}, players::{events::{Despawn, Spawn}, player::{ Player, PlayerSpeed}, player_register::{PlayerRegister, RegisterPlayer}, player_state::PlayerState, player_type::{Client, Enemy, Service}, systems::{advance_smooth, on_client_despawn, on_client_spawn, on_enemy_despawn, on_enemy_spawn, on_execute_instruction, on_execute_step, on_inputed, on_outputed, on_register_player, on_service_despawn, on_service_spawn, register_players}}, utils::grid::{Grid, SmoothToGrid}};
 
 pub mod player;
 mod systems;
+pub mod events;
 pub mod player_register;
-pub mod spawner;
 pub mod player_type;
 pub mod player_state;
+pub mod player_actions;
 
 pub struct PlayerPlugin;
-
 
 impl Plugin for PlayerPlugin {
     fn build(self, app:  &mut engine::app::App) {
         app
-        .add_message::<Command>()
-        .add_systems::<F4<Commands, Query<(EntityId, &Client)>, Query<(EntityId, &Service)>, Query<(EntityId, &Enemy)>>>(
+        .add_systems(
             ScheduleLabel::Startup, 
             register_players
         )
-        .add_observer::<StepEnd, F2<On<StepEnd>, Query<&mut PlayerState>>>(
-            on_step_end
-        )
-        .add_systems::<F3<Commands, Query<(EntityId, &PlayerSpeed, &mut SmoothToGrid)>, &GameSpeed>>(
+        .add_systems(
             ScheduleLabel::FixedUpdate, 
             advance_smooth
         )
-        .add_observer::<PendingAction, F3<On<PendingAction>, Commands, Query<(&mut Player, &mut PlayerState)>>>(
-            handle_pending_players
+        .add_observer(
+            on_execute_instruction
         )
-        .add_observer::<SpawnClient, F2<On<SpawnClient>, Commands>>(
+        .add_observer(
+            on_execute_step
+        )
+        .add_observer(
             on_client_spawn
         )
-        .add_observer::<SpawnService, F2<On<SpawnService>, Commands>>(
+        .add_observer(
             on_service_spawn
         )
-        .add_observer::<SpawnEnemy, F2<On<SpawnEnemy>, Commands>>(
+        .add_observer(
             on_enemy_spawn
         )
-        .add_observer::<Interact, F4<On<Interact>, Query<&mut Player>, &MachineRegister, &PlayerRegister>>(
-            on_interact
+        .add_observer(
+            on_client_despawn
         )
-        .add_observer::<Disrupt, F4<On<Disrupt>, Query<&mut Player>, &MachineRegister, &PlayerRegister>>(
-            on_disrupt
+        .add_observer(
+            on_service_despawn
         )
-        .add_observer::<SetPath, F4<On<SetPath>, Query<&mut Player>, &Grid, &PlayerRegister>>(
-            on_set_path
+        .add_observer(
+            on_enemy_despawn
         )
-        .add_observer::<RegisterPlayer, F2<On<RegisterPlayer>, &mut PlayerRegister>>(
+        .add_observer(
             on_register_player
+        )
+        .add_observer(
+            on_inputed
+        )
+        .add_observer(
+            on_outputed
         );
     }
 }
+

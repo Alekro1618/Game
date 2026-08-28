@@ -1,9 +1,11 @@
-use std::any::{Any, TypeId};
+use std::any::Any;
 
 use crate::error::error::Error;
 
-pub trait Reflect : Send + Sync + Any
-where Self: 'static {
+pub trait Reflect: Send + Sync + Any
+where
+    Self: 'static,
+{
     fn as_reflect(&self) -> &dyn Reflect;
     fn into_reflect(self) -> Box<dyn Reflect>;
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, Error>;

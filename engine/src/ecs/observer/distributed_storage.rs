@@ -1,12 +1,15 @@
-use std::{any::Any};
+use std::any::Any;
 
-use crate::ecs::{bundle::Bundle, components::{Component, Mutable, StorageType, id::ComponentId}, entities::id::EntityId, event::{Event}, systems::{IntoSystem, observer_system::IntoObserverSystem, system::System}};
-
+use crate::ecs::{
+    components::{Component, Mutable, StorageType},
+    event::Event,
+    systems::observer_system::IntoObserverSystem,
+};
 
 pub struct Observer {
     pub(crate) system: Box<dyn Any + Send + Sync + 'static>,
     pub(crate) last_trigger_id: u32,
-    pub(crate) despawned_watched_entities: u32
+    pub(crate) despawned_watched_entities: u32,
 }
 
 impl Observer {
@@ -31,7 +34,7 @@ pub trait IntoObserver<E: Event, Marker>: Send + 'static {
     fn into_observer(self) -> Observer;
 }
 
-impl<E: Event, M, T: IntoObserverSystem<E,  M>> IntoObserver<E, M> for T {
+impl<E: Event, M, T: IntoObserverSystem<E, M>> IntoObserver<E, M> for T {
     fn into_observer(self) -> Observer {
         Observer::new(self)
     }

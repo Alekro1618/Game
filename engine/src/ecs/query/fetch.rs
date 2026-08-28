@@ -1,6 +1,13 @@
 use std::{cell::UnsafeCell, marker::PhantomData};
 
-use crate::ecs::{change_detection::{params::Mut, tick::Tick}, components::{Component, id::ComponentId}, entities::id::EntityId, query::query_world::WorldQuery, storage::Table, worlds::World};
+use crate::ecs::{
+    change_detection::{params::Mut, tick::Tick},
+    components::{Component, id::ComponentId},
+    entities::id::EntityId,
+    query::query_world::WorldQuery,
+    storage::Table,
+    worlds::World,
+};
 
 pub trait QueryData: WorldQuery {
     const IS_READ_ONLY: bool;
@@ -19,7 +26,6 @@ pub trait QueryData: WorldQuery {
     ) -> Option<Self::Item<'w, 's>>;
 }
 
-
 impl WorldQuery for () {
     type Fetch<'w> = ();
 
@@ -35,7 +41,7 @@ impl WorldQuery for () {
     ) -> bool {
         true
     }
-    
+
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
@@ -43,7 +49,7 @@ impl WorldQuery for () {
     ) {
         ()
     }
-    
+
     fn init_fetch<'w, 's>(
         _world: &'w World,
         _state: &'s Self::State,
@@ -55,8 +61,8 @@ impl WorldQuery for () {
 }
 
 pub struct ReadFetch<'w, T> {
-    ptr : Option<&'w [UnsafeCell<T>]>,
-    _marker : PhantomData<&'w T>
+    ptr: Option<&'w [UnsafeCell<T>]>,
+    _marker: PhantomData<&'w T>,
 }
 
 impl<T> Clone for ReadFetch<'_, T> {
@@ -71,29 +77,25 @@ impl WorldQuery for EntityId {
     type State = ();
 
     fn init_fetch<'w, 's>(
-        world: &'w World,
-        state: &'s Self::State,
-        last_run: Tick,
-        this_run: Tick,
+        _world: &'w World,
+        _state: &'s Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
     ) -> Self::Fetch<'w> {
-        
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        
-    }
+    fn init_state(_world: &mut World) -> Self::State {}
 
     unsafe fn set_table<'w, 's>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &'s Self::State,
-        table: &'w Table,
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _table: &'w Table,
     ) {
-        
     }
 
     fn matches_component_set(
-        state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         true
     }
@@ -113,21 +115,19 @@ impl QueryData for EntityId {
     }
 
     unsafe fn fetch<'w, 's>(
-        state: &'s Self::State,
-        fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _fetch: &mut Self::Fetch<'w>,
         entity: EntityId,
-        table_row: u32,
+        _table_row: u32,
     ) -> Option<Self::Item<'w, 's>> {
         Some(entity)
     }
 }
 
-
-
-impl<T : Component> WorldQuery for &T {
+impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
-    
+
     fn init_fetch<'w, 's>(
         _world: &'w World,
         _state: &'s Self::State,
@@ -135,15 +135,15 @@ impl<T : Component> WorldQuery for &T {
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
         ReadFetch {
-            ptr : None,
-            _marker : PhantomData
+            ptr: None,
+            _marker: PhantomData,
         }
     }
-    
+
     fn init_state(world: &mut World) -> Self::State {
         world.register_component::<T>()
     }
-    
+
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
@@ -155,7 +155,7 @@ impl<T : Component> WorldQuery for &T {
                 .map(|column| column.get_data_slice(table.entity_count() as usize))
         }
     }
-    
+
     fn matches_component_set(
         &state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -179,16 +179,16 @@ impl<T: Component> QueryData for &T {
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
-        _entity : EntityId,
+        _entity: EntityId,
         table_row: u32,
-    ) -> Option<Self::Item<'w, 's>> { unsafe {
-        Some(&*fetch.ptr?[table_row as usize].get())
-    }}
+    ) -> Option<Self::Item<'w, 's>> {
+        unsafe { Some(&*fetch.ptr?[table_row as usize].get()) }
+    }
 }
 
-pub struct WriteFetch<'w, T : Component> {
-    ptr : Option<&'w [UnsafeCell<T>]>,
-    _marker : PhantomData<&'w T>
+pub struct WriteFetch<'w, T: Component> {
+    ptr: Option<&'w [UnsafeCell<T>]>,
+    _marker: PhantomData<&'w T>,
 }
 
 impl<T: Component> Clone for WriteFetch<'_, T> {
@@ -197,12 +197,10 @@ impl<T: Component> Clone for WriteFetch<'_, T> {
     }
 }
 
-
-
-impl<'__w, T : Component> WorldQuery for &'__w mut T {
+impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
-    
+
     fn init_fetch<'w, 's>(
         _world: &'w World,
         _state: &'s Self::State,
@@ -210,15 +208,15 @@ impl<'__w, T : Component> WorldQuery for &'__w mut T {
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
         WriteFetch {
-            ptr : None,
-            _marker : PhantomData
+            ptr: None,
+            _marker: PhantomData,
         }
     }
-    
+
     fn init_state(world: &mut World) -> Self::State {
         world.register_component::<T>()
     }
-    
+
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
@@ -230,7 +228,7 @@ impl<'__w, T : Component> WorldQuery for &'__w mut T {
                 .map(|column| column.get_data_slice(table.entity_count()));
         }
     }
-    
+
     fn matches_component_set(
         &state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -254,15 +252,18 @@ impl<'__w, T: Component> QueryData for &'__w mut T {
     unsafe fn fetch<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
-        _entity : EntityId,
+        _entity: EntityId,
         table_row: u32,
-    ) -> Option<Self::Item<'w, 's>> { unsafe {
-        Some(Mut { value: &mut *fetch.ptr?[table_row as usize].get() })
-    }}
-
+    ) -> Option<Self::Item<'w, 's>> {
+        unsafe {
+            Some(Mut {
+                value: &mut *fetch.ptr?[table_row as usize].get(),
+            })
+        }
+    }
 }
 
-impl<A : QueryData, B : QueryData> WorldQuery for (A, B) {
+impl<A: WorldQuery, B: WorldQuery> WorldQuery for (A, B) {
     type Fetch<'w> = (A::Fetch<'w>, B::Fetch<'w>);
     type State = (A::State, B::State);
 
@@ -274,16 +275,12 @@ impl<A : QueryData, B : QueryData> WorldQuery for (A, B) {
     ) -> Self::Fetch<'w> {
         (
             A::init_fetch(world, &state.0, last_run, this_run),
-            B::init_fetch(world, &state.1, last_run, this_run)
+            B::init_fetch(world, &state.1, last_run, this_run),
         )
-        
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        (
-            A::init_state(world),
-            B::init_state(world)
-        )
+        (A::init_state(world), B::init_state(world))
     }
 
     unsafe fn set_table<'w, 's>(
@@ -301,11 +298,12 @@ impl<A : QueryData, B : QueryData> WorldQuery for (A, B) {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        A::matches_component_set(&state.0, set_contains_id) && B::matches_component_set(&state.1, set_contains_id)
+        A::matches_component_set(&state.0, set_contains_id)
+            && B::matches_component_set(&state.1, set_contains_id)
     }
 }
 
-impl<A : QueryData, B : QueryData> QueryData for (A, B) {
+impl<A: QueryData, B: QueryData> QueryData for (A, B) {
     const IS_READ_ONLY: bool = A::IS_READ_ONLY && B::IS_READ_ONLY;
 
     const IS_ARCHETYPAL: bool = A::IS_ARCHETYPAL && B::IS_ARCHETYPAL;
@@ -326,13 +324,13 @@ impl<A : QueryData, B : QueryData> QueryData for (A, B) {
     ) -> Option<Self::Item<'w, 's>> {
         unsafe {
             let a = A::fetch(&state.0, &mut fetch.0, entity, table_row)?;
-            let b  = B::fetch(&state.1, &mut fetch.1, entity, table_row)?;
+            let b = B::fetch(&state.1, &mut fetch.1, entity, table_row)?;
             Some((a, b))
         }
     }
 }
 
-impl<A : QueryData, B : QueryData, C : QueryData> WorldQuery for (A, B, C) {
+impl<A: WorldQuery, B: WorldQuery, C: WorldQuery> WorldQuery for (A, B, C) {
     type Fetch<'w> = (A::Fetch<'w>, B::Fetch<'w>, C::Fetch<'w>);
     type State = (A::State, B::State, C::State);
 
@@ -345,16 +343,15 @@ impl<A : QueryData, B : QueryData, C : QueryData> WorldQuery for (A, B, C) {
         (
             A::init_fetch(world, &state.0, last_run, this_run),
             B::init_fetch(world, &state.1, last_run, this_run),
-            C::init_fetch(world, &state.2, last_run, this_run)
+            C::init_fetch(world, &state.2, last_run, this_run),
         )
-        
     }
 
     fn init_state(world: &mut World) -> Self::State {
         (
             A::init_state(world),
             B::init_state(world),
-            C::init_state(world)
+            C::init_state(world),
         )
     }
 
@@ -374,14 +371,13 @@ impl<A : QueryData, B : QueryData, C : QueryData> WorldQuery for (A, B, C) {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        A::matches_component_set(&state.0, set_contains_id) &&
-        B::matches_component_set(&state.1, set_contains_id) &&
-        C::matches_component_set(&state.2, set_contains_id)
+        A::matches_component_set(&state.0, set_contains_id)
+            && B::matches_component_set(&state.1, set_contains_id)
+            && C::matches_component_set(&state.2, set_contains_id)
     }
 }
 
-
-impl<A : QueryData, B : QueryData, C : QueryData> QueryData for (A, B, C) {
+impl<A: QueryData, B: QueryData, C: QueryData> QueryData for (A, B, C) {
     const IS_READ_ONLY: bool = A::IS_READ_ONLY && B::IS_READ_ONLY && C::IS_READ_ONLY;
 
     const IS_ARCHETYPAL: bool = A::IS_ARCHETYPAL && B::IS_ARCHETYPAL && C::IS_ARCHETYPAL;
@@ -402,14 +398,14 @@ impl<A : QueryData, B : QueryData, C : QueryData> QueryData for (A, B, C) {
     ) -> Option<Self::Item<'w, 's>> {
         unsafe {
             let a = A::fetch(&state.0, &mut fetch.0, entity, table_row)?;
-            let b  = B::fetch(&state.1, &mut fetch.1, entity, table_row)?;
+            let b = B::fetch(&state.1, &mut fetch.1, entity, table_row)?;
             let c = C::fetch(&state.2, &mut fetch.2, entity, table_row)?;
             Some((a, b, c))
         }
     }
 }
 
-impl<A : QueryData, B : QueryData, C : QueryData, D : QueryData> WorldQuery for (A, B, C, D) {
+impl<A: WorldQuery, B: WorldQuery, C: WorldQuery, D: WorldQuery> WorldQuery for (A, B, C, D) {
     type Fetch<'w> = (A::Fetch<'w>, B::Fetch<'w>, C::Fetch<'w>, D::Fetch<'w>);
     type State = (A::State, B::State, C::State, D::State);
 
@@ -423,9 +419,8 @@ impl<A : QueryData, B : QueryData, C : QueryData, D : QueryData> WorldQuery for 
             A::init_fetch(world, &state.0, last_run, this_run),
             B::init_fetch(world, &state.1, last_run, this_run),
             C::init_fetch(world, &state.2, last_run, this_run),
-            D::init_fetch(world, &state.3, last_run, this_run)
+            D::init_fetch(world, &state.3, last_run, this_run),
         )
-        
     }
 
     fn init_state(world: &mut World) -> Self::State {
@@ -433,7 +428,7 @@ impl<A : QueryData, B : QueryData, C : QueryData, D : QueryData> WorldQuery for 
             A::init_state(world),
             B::init_state(world),
             C::init_state(world),
-            D::init_state(world)
+            D::init_state(world),
         )
     }
 
@@ -454,20 +449,26 @@ impl<A : QueryData, B : QueryData, C : QueryData, D : QueryData> WorldQuery for 
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        A::matches_component_set(&state.0, set_contains_id) &&
-        B::matches_component_set(&state.1, set_contains_id) &&
-        C::matches_component_set(&state.2, set_contains_id) &&
-        D::matches_component_set(&state.3, set_contains_id)
+        A::matches_component_set(&state.0, set_contains_id)
+            && B::matches_component_set(&state.1, set_contains_id)
+            && C::matches_component_set(&state.2, set_contains_id)
+            && D::matches_component_set(&state.3, set_contains_id)
     }
 }
 
+impl<A: QueryData, B: QueryData, C: QueryData, D: QueryData> QueryData for (A, B, C, D) {
+    const IS_READ_ONLY: bool =
+        A::IS_READ_ONLY && B::IS_READ_ONLY && C::IS_READ_ONLY && D::IS_READ_ONLY;
 
-impl<A : QueryData, B : QueryData, C : QueryData, D : QueryData> QueryData for (A, B, C, D) {
-    const IS_READ_ONLY: bool = A::IS_READ_ONLY && B::IS_READ_ONLY && C::IS_READ_ONLY && D::IS_READ_ONLY;
+    const IS_ARCHETYPAL: bool =
+        A::IS_ARCHETYPAL && B::IS_ARCHETYPAL && C::IS_ARCHETYPAL && D::IS_ARCHETYPAL;
 
-    const IS_ARCHETYPAL: bool = A::IS_ARCHETYPAL && B::IS_ARCHETYPAL && C::IS_ARCHETYPAL && D::IS_ARCHETYPAL;
-
-    type Item<'w, 's> = (A::Item<'w, 's>, B::Item<'w, 's>, C::Item<'w, 's>, D::Item<'w, 's>);
+    type Item<'w, 's> = (
+        A::Item<'w, 's>,
+        B::Item<'w, 's>,
+        C::Item<'w, 's>,
+        D::Item<'w, 's>,
+    );
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         _item: Self::Item<'wlong, 's>,
@@ -483,72 +484,72 @@ impl<A : QueryData, B : QueryData, C : QueryData, D : QueryData> QueryData for (
     ) -> Option<Self::Item<'w, 's>> {
         unsafe {
             let a = A::fetch(&state.0, &mut fetch.0, entity, table_row)?;
-            let b  = B::fetch(&state.1, &mut fetch.1, entity, table_row)?;
+            let b = B::fetch(&state.1, &mut fetch.1, entity, table_row)?;
             let c = C::fetch(&state.2, &mut fetch.2, entity, table_row)?;
-            let d = D::fetch(&state.3,  &mut fetch.3, entity, table_row)?;
+            let d = D::fetch(&state.3, &mut fetch.3, entity, table_row)?;
             Some((a, b, c, d))
         }
     }
 }
 
-// impl<T : Component> WorldQuery for Option<&T> {
-//     type Fetch<'w> = ReadFetch<'w, T>;
-//     type State = ComponentId;
-    
-    
-//     fn init_fetch<'w, 's>(
-//         _world: &'w World,
-//         _state: &'s Self::State,
-//         _last_run: Tick,
-//         _this_run: Tick,
-//     ) -> Self::Fetch<'w> {
-//         ReadFetch {
-//             ptr : None,
-//             _marker : PhantomData
-//         }
-//     }
-    
-//     fn init_state(world: &mut World) -> Self::State {
-//         world.register_component::<T>()
-//     }
-    
-//     unsafe fn set_table<'w, 's>(
-//         fetch: &mut Self::Fetch<'w>,
-//         state: &'s Self::State,
-//         table: &'w Table,
-//     ) {
-//         *fetch = ReadFetch { 
-//             ptr: table.get_column(*state).map(|s| s.as_ptr().cast::<T>()),
-//             _marker: PhantomData 
-//         }
-//     }
-    
-//     fn matches_component_set(
-//         &state: &Self::State,
-//         set_contains_id: &impl Fn(ComponentId) -> bool,
-//     ) -> bool {
-//         true
-//     }
-// }
+impl<T: Component> WorldQuery for Option<&T> {
+    type Fetch<'w> = ReadFetch<'w, T>;
+    type State = ComponentId;
 
-// impl<T: Component> QueryData for Option<&T> {
-//     const IS_READ_ONLY: bool = true;
-//     const IS_ARCHETYPAL: bool = true;
+    fn init_fetch<'w, 's>(
+        _world: &'w World,
+        _state: &'s Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        ReadFetch {
+            ptr: None,
+            _marker: PhantomData,
+        }
+    }
 
-//     type Item<'w, 's> = Option<&'w T>;
+    fn init_state(world: &mut World) -> Self::State {
+        world.register_component::<T>()
+    }
 
-//     fn shrink<'wlong: 'wshort, 'wshort, 's>(
-//         item: Self::Item<'wlong, 's>,
-//     ) -> Self::Item<'wshort, 's> {
-//         item
-//     }
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &'s Self::State,
+        table: &'w Table,
+    ) {
+        unsafe {
+            fetch.ptr = table
+                .get_column(*state)
+                .map(|column| column.get_data_slice(table.entity_count() as usize))
+        }
+    }
 
-//     unsafe fn fetch<'w, 's>(
-//         _state: &'s Self::State,
-//         fetch: &mut Self::Fetch<'w>,
-//         _entity : EntityId,
-//         table_row: u32,
-//     ) -> Option<Self::Item<'w, 's>> { unsafe {
-//         Some(Some(&*fetch.ptr?.add(table_row as usize)))
-//     }}
-// }
+    fn matches_component_set(
+        &_state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+impl<T: Component> QueryData for Option<&T> {
+    const IS_READ_ONLY: bool = true;
+    const IS_ARCHETYPAL: bool = true;
+
+    type Item<'w, 's> = Option<&'w T>;
+
+    fn shrink<'wlong: 'wshort, 'wshort, 's>(
+        item: Self::Item<'wlong, 's>,
+    ) -> Self::Item<'wshort, 's> {
+        item
+    }
+
+    unsafe fn fetch<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        _entity: EntityId,
+        table_row: u32,
+    ) -> Option<Self::Item<'w, 's>> {
+        unsafe { Some(fetch.ptr.map(|slice| &*slice[table_row as usize].get())) }
+    }
+}
