@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    animation::{Animatable, media::AnimatableMedia, player::{Player}}, asset::{asset::Asset, handle::Handle}, impl_either,
+    animation::{Animatable, media::AnimatableMedia, player::{Player}}, asset::{asset::Asset, handle::Handle},
 };
 
 #[derive(Clone, Serialize, Deserialize)]

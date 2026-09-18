@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    animation::{Animatable, media::AnimatableMedia, player::Player}, asset::{AssetPath, asset::Asset, handle::Handle}, image::Image, math::rect::Rect, render::color::Color,
+    animation::{Animatable, media::AnimatableMedia, player::Player}, asset::{AssetPath, asset::Asset, handle::Handle}, image::Image, math::rect::Rect,
 };
 
 

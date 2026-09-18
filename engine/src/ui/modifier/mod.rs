@@ -15,7 +15,7 @@ impl Modifier {
 }
 
 trait ModifierElement {
-    fn apply(&self, node : &mut Node) {
+    fn apply(&self, _node : &mut Node) {
 
     }
 }

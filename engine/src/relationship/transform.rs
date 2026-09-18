@@ -1,7 +1,5 @@
 use crate::{
-    ecs::{
-        components::{Component, Mutable}, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{With, Without}, systems::query::Query,
-    }, math::transform::Transform,
+    ecs::components::{Component, Mutable}, math::transform::Transform,
 };
 
 #[derive(Clone, Copy)]

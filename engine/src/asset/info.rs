@@ -2,10 +2,8 @@ use std::{
     any::TypeId,
     collections::{HashMap, hash_map::Entry},
     sync::{Arc, Weak},
-    thread::JoinHandle,
 };
 
-use serde::{Deserialize, Serialize};
 
 use crate::{
     asset::{
@@ -195,7 +193,7 @@ impl AssetInfos {
                     ))
                 }
             }
-            Entry::Vacant(entry) => {
+            Entry::Vacant(_entry) => {
                 Err(Error::new(
                     ErrorKind::Asset, 
                     format!("Trying to get handle of not previosly prepared asset {}", path)

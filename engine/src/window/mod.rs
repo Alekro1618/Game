@@ -4,8 +4,8 @@ use macroquad::{
 };
 
 use crate::{
-    app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
-        change_detection::params::Mut, components::{Component, Mutable, StorageType}, event::Event, observer::system_param::On, resource::Resource, systems::{commands::Commands},
+    app::plugin::Plugin, ecs::{
+        change_detection::params::Mut, components::{Component, Mutable, StorageType}, event::Event, observer::system_param::On, resource::Resource,
     }, math::vec::Vec2,
 };
 

@@ -1,9 +1,8 @@
 use crate::{
     app::{App, main_schedule::ScheduleLabel, plugin::Plugin},
     input::{
-        button_input::ButtonInput,
-        keyboard::{KeyCode, keyboard_input_system},
-        mouse::{MouseButton, MousePos, mouse_button_input_system, mouse_position_system},
+        keyboard::keyboard_input_system,
+        mouse::{mouse_button_input_system, mouse_position_system},
     },
 };
 

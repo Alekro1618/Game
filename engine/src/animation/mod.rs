@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     animation::{
-        loader::{AnimatableManagerMediaLoader, AnimatableMediaLoader}, manager::{AnimationManager, AnimationManagerPlayer}, player::{ Player, PlayerInstance}, recording::{RecordPlayer, Recording}, sprite::{TextureRecording, TextureRecordingPlayer},
+        loader::{AnimatableManagerMediaLoader, AnimatableMediaLoader}, manager::{AnimationManager, AnimationManagerPlayer}, player::{ Player, PlayerInstance}, recording::RecordPlayer, sprite::{TextureRecording, TextureRecordingPlayer},
     }, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetServer, asset::Assets}, ecs::{
         change_detection::params::Mut, components::{Component, Mutable}, entities::id::EntityId, event::Event, observer::system_param::On, systems::query::Query,
-    }, image::Image, math::{transform::Transform, vec::Vec2}, utils::resources::{GameSpeed, Time},
+    }, image::Image, math::{transform::Transform, vec::Vec2}, utils::resources::Time,
 };
 
 mod loader;

@@ -28,7 +28,7 @@ impl AssetLoader for AudioLoader {
     fn load(
         &self,
         reader: &mut Vec<u8>,
-        load_context: &mut LoadContext,
+        _load_context: &mut LoadContext,
     ) -> impl Future<Output = Result<Self::Asset, Self::Error>> + Send {
         async move {
             Ok(AudioSource {

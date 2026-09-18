@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 
-use crate::{ecs::{
-    schedule::schedule_system::ScheduleSystem, systems::{node::SystemNode, system::System}, worlds::World,
-}, utils::SparseArray};
+use crate::ecs::{
+    schedule::schedule_system::ScheduleSystem, systems::{node::SystemNode, system::System},
+};
 
 #[derive(Default)]
 pub(crate) struct Systems {

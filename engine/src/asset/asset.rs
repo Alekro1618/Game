@@ -8,7 +8,7 @@ use std::{
 use async_channel::{Receiver, Sender, unbounded};
 
 use crate::{
-    asset::handle::{AssetHandleProvider, Handle},
+    asset::handle::AssetHandleProvider,
     ecs::{
         components::{Component, Mutable},
         resource::Resource,
@@ -198,7 +198,7 @@ impl<A: Asset> DenseAssetStorage<A> {
             .drain(..)
             .filter_map(|entry| match entry {
                 Entry::None => None,
-                Entry::Some { value, generation } => Some(value),
+                Entry::Some { value, generation: _ } => Some(value),
             })
             .filter_map(|entry| entry)
     }

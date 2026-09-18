@@ -2,11 +2,9 @@ use std::{
     any::{Any, TypeId},
     panic::AssertUnwindSafe,
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
-    thread,
 };
 
 use async_channel::{Receiver, Sender, unbounded};
-use macroquad::logging::warn;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,7 +15,7 @@ use crate::{
         loader::{AssetLoader, ErasedAssetLoader, ErasedLoadedAsset, LoadContext},
         service::loaders::AssetLoaders,
     }, ecs::{
-        change_detection::params::Mut, components::{Component, Mutable, StorageType}, resource::Resource, systems::commands::Commands, worlds::World,
+        change_detection::params::Mut, components::{Component, Mutable, StorageType}, resource::Resource, worlds::World,
     }, error::error::{Error, ErrorKind},
 };
 

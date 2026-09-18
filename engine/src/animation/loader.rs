@@ -1,9 +1,8 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::marker::PhantomData;
 
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    animation::{Animatable, manager::{AnimationManager, AnimationManagerErased, Transition}, media::AnimatableMedia, player::Player}, asset::{AssetPath, loader::AssetLoader}, error::error::Error,
+    animation::{Animatable, manager::{AnimationManager, AnimationManagerErased}, media::AnimatableMedia, player::Player}, asset::loader::AssetLoader, error::error::Error,
 };
 
 pub struct AnimatableMediaLoader<M: AnimatableMedia<A>, A: Animatable>(PhantomData<(M, A)>);

@@ -6,10 +6,7 @@ use crate::{
             commands::Commands,
             query::Query,
         },
-    }, input::{
-        button_input::ButtonInput,
-        mouse::MouseButton,
-    }, ui::render::interact::Hovering,
+    }, input::mouse::MouseButton, ui::render::interact::Hovering,
 };
 
 pub struct ClickEventPlugin<E: ClickEvent>(PhantomData<E>);

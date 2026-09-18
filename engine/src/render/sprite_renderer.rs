@@ -1,8 +1,8 @@
 
 use crate::{
-    animation::sprite, app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetServer, asset::Assets}, ecs::{
+    app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
         systems::query::Query, worlds::World,
-    }, image::{Image, TempQuadImageStorage}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite,
+    }, image::TempQuadImageStorage, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite,
 };
 
 pub struct RenderPlugin;

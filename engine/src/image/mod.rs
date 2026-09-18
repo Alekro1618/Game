@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::sync::LazyLock;
 
 use image::{ImageError, ImageFormat};
 

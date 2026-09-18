@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     animation::{
         Animatable, player::Player,
-    }, asset::{AssetPath, asset::Asset, handle::Handle}, ecs::{components::{Component, Mutable}, event::Event},
+    }, asset::{AssetPath, asset::Asset, handle::Handle}, ecs::components::{Component, Mutable},
 };
 
 #[derive(Serialize, Deserialize)]

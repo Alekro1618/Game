@@ -55,7 +55,7 @@ impl Camera {
             rotation: 0.0,
             target,
             zoom,
-            offset: vec2(0.0, 0.0),
+            offset: vec2(0.0_f32, 0.0_f32),
             render_target: None,
         }
     }

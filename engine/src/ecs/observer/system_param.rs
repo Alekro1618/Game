@@ -1,10 +1,7 @@
-use std::{
-    any::TypeId,
-    ptr::{self},
-};
+use std::any::TypeId;
 
 use crate::ecs::{
-    event::Event, systems::{function_system::SystemParamTuple, system::SystemInput}, worlds::World,
+    event::Event, systems::system::SystemInput,
 };
 
 pub struct On<'w, E: Event> {
