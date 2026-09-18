@@ -3,13 +3,13 @@ use core::num;
 use engine::{ecs::{change_detection::params::Mut, entities::id::EntityId, observer::system_param::On, systems::{commands::Commands, query::Query}}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite};
 use rand::seq::IteratorRandom;
 
-use crate::{bundles::PlayerBundle, client::{client::{ClientList, client_color}, queue::{InQueue, MoveQueue, Queue, SpawnRandomClient}}, instructions::{components::{InstructionLabel, SpecialLabel, Step}, events::{ExecuteInstruction, ExecuteStep}}, items::Inventory, machines::{machine::WaitingFor, machine_type::MachineType}, order::order::{CompletedOrder, NewRandomOrder}, players::{ events::{Inputed, Spawn, Spawned}, player::{ Player, PlayerSpeed}, player_actions::{SetPath, add_path}, player_state::PlayerState, player_type::{Client, PlayerType}}, queue, utils::grid::{Grid, GridName, Point, SmoothToGrid, SpecialKeys}};
+use crate::{bundles::PlayerBundle, client::{client::{ClientList, client_color}, queue::{InQueue, MoveQueue, Queue, SpawnRandomClient}}, instructions::{components::{InstructionLabel, SpecialLabel, Step}, events::{ExecuteInstruction, ExecuteStep}}, items::Inventory, machines::{machine::{Machine, WaitingFor}, machine_type::MachineType}, order::order::{CompletedOrder, NewRandomOrder}, players::{ events::{Inputed, Spawn, Spawned}, player::{ Player, PlayerSpeed}, player_actions::{SetPath, add_path}, player_state::PlayerState, player_type::{Client, PlayerType}}, queue, utils::grid::{Grid, GridName, Point, SmoothToGrid, SpecialKeys}};
 
 pub fn on_client_spawned(
     on : On<Spawned<Client>>,
     mut commands: Commands,
     grid : &Grid,
-    query : Query<(EntityId, &mut Queue)>
+    query : Query<(EntityId, &mut Queue)>,
 ) {
     let spawned_client = on.event();
     let entity = spawned_client.0;
@@ -40,6 +40,14 @@ pub fn on_client_spawned(
     if queue.len() == 1 {
         commands.trigger(ExecuteStep(PlayerType::Client(client), Step::Interact(MachineType::CashRegister, None)));
     }
+}
+
+pub fn client_to_queue(
+    entity : EntityId,
+    client : Client,
+
+) {
+    
 }
 
 

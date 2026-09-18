@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use engine::{asset::AssetServer, ecs::{entities::id::EntityId, message::message_writer::MessageWriter, name::Name, query::filter::With, systems::query::Query}};
+use engine::{asset::{AssetServer, handle::Handle}, ecs::{entities::id::EntityId, message::message_writer::MessageWriter, name::Name, query::filter::With, systems::query::Query}, image::Image};
 use engine_macros::{Event, Resource};
 use macroquad::input::KeyCode::L;
 
-use crate::{cutscenes::{actor::Actor, script::{Command, CommandMessage, Script, ScriptNode, ScriptNodeMessage, tags::Tag}}, items::Item};
+use crate::{cutscenes::{actor::Actor, script::{ActorDefinitionMessage, Command, CommandMessage, Script, ScriptNode, ScriptNodeMessage, tags::Tag}}, items::Item};
 
 
 pub enum ReaderState {
@@ -14,6 +14,7 @@ pub enum ReaderState {
 
 #[derive(Clone, Copy)]
 pub enum ReaderWait {
+    NeedsLoading,
     WaitingForAdvance,
     WaitingForChoice,
     EndOfScript
@@ -101,6 +102,18 @@ impl ScriptReader {
             ScriptNode::Pause => {
                 self.state = ReaderState::Wait(ReaderWait::WaitingForAdvance);
             },
+            ScriptNode::ActorDefinition { name, definition } => {
+                let animation_manager = asset_server.load(definition.animation_manager);
+                message_writer.write(ScriptNodeMessage::ActorDefinition {
+                    name: name.clone(),
+                    definition: ActorDefinitionMessage {
+                        name: definition.name.clone(),
+                        animation_manager: animation_manager,
+                        start: definition.start.clone(),
+                    }
+                });
+                self.state = ReaderState::Wait(ReaderWait::NeedsLoading);
+            },
             _ => {
                 self.state = ReaderState::Advance;
             }
@@ -117,8 +130,9 @@ impl ScriptReader {
     ) -> EntityId {
         actors
             .iter()
-            .find(|(_, name)| name.equals(&script.actors[speaker].name))
-            .map(|(id, _)| id)
+            .find_map(|(id, name)| 
+                name.equals(&script.actors[speaker].name).then(|| id)
+            )
             .unwrap()
     }
 
@@ -190,7 +204,7 @@ pub struct TextReader {
 impl Default for TextReader {
     fn default() -> Self {
         Self {
-            cursor: TextCursor { character: 0, current_tag: Tag::Unknown },
+            cursor: TextCursor { character: -1, current_tag: Tag::Unknown },
             original: Vec::new()
         }
         
@@ -200,7 +214,7 @@ impl Default for TextReader {
 impl TextReader {
      pub fn new() -> Self {
         Self {
-            cursor : TextCursor { character: 0, current_tag : Tag::Unknown },
+            cursor : TextCursor { character: -1, current_tag : Tag::Unknown },
             original: Vec::with_capacity(200)
         }
     }

@@ -90,7 +90,7 @@ impl AssetInfos {
         path: &'static str,
         lazy : bool
     ) -> (Handle<A>, bool) {
-        let result = self.get_or_create_path_handle_internal(path, Some(TypeId::of::<A>()), !lazy);
+        let result = self.get_or_create_path_handle_internal(path, Some(TypeId::of::<A>()), lazy);
 
         let (handle, should_load) = result.unwrap();
 

@@ -59,6 +59,10 @@ impl SubApp {
         }
     }
 
+    pub fn run_schedule(&mut self, label : ScheduleLabel) {
+        self.world.run_schedule(label);
+    }
+
     pub fn pre_start_up(&mut self) {
         self.world.run_schedule(ScheduleLabel::PreStartup);
     }
@@ -175,6 +179,15 @@ pub struct SubApps {
 }
 
 impl SubApps {
+    pub fn run_schedule(&mut self, label : ScheduleLabel) {
+        self.main.run_schedule(label);
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            sub_app.extract(&mut self.main.world);
+            sub_app.run_schedule(label);
+            sub_app.extract(&mut self.main.world);
+        }
+    }
+
     pub fn pre_start_up(&mut self) {
         self.main.pre_start_up();
         for (_label, sub_app) in self.sub_apps.iter_mut() {

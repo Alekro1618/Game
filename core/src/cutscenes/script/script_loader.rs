@@ -7,8 +7,6 @@ use crate::cutscenes::script::{ActorDefinition, Label, Script, ScriptNode, scrip
 
 pub struct ScriptReader<'a> {
     source : &'a mut Vec<u8>,
-    labels : HashMap<Label, usize>,
-    actors : HashMap<Box<str>, ActorDefinition>,
     buffer : Vec<ScriptNode>
 }
 
@@ -16,8 +14,6 @@ impl<'a> ScriptReader<'a> {
     fn new(source : &'a mut Vec<u8>) -> Self {
         Self {
             source: source,
-            labels: HashMap::new(),
-            actors: HashMap::new(),
             buffer: Vec::new()
         }
     }
@@ -51,10 +47,6 @@ impl<'a> ScriptReader<'a> {
     
         Some(Ok(first))
     }
-
-    fn retrive_labels_and_actors(self) -> (HashMap<Label, usize>, HashMap<Box<str>, ActorDefinition>)  {
-        (self.labels, self.actors)
-    }
 }
 
 
@@ -83,25 +75,61 @@ impl AssetLoader for ScriptLoader {
                 let node = node?;
                 script_result.nodes.push(node);
             }
-            (script_result.labels, script_result.actors) = script_reader.retrive_labels_and_actors();
+            script_result.prepare();
 
             Ok(script_result)
         }
     }
 }
 
+#[derive(Debug)]
 pub enum ScriptLoaderError {
     NoTextAfterSpeaker,
     EmptyLabel,
     EmptyText,
     NoOptionsForChoice,
     NoEndOfChoice,
+    NoBackground,
     NoMusic,
     NoSound,
+    NotFullCommand,
+    NoTransition,
+    UnknownTransition,
+    NoPosition,
+    UnknownPosition,
+    NoState,
+    NoActor,
+    Custom(String)
 }
 
 impl Into<Error> for ScriptLoaderError {
     fn into(self) -> Error {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use crate::cutscenes::script::{Script, script_loader::{ ScriptReader}};
+
+    #[test]
+    fn test() {
+        let mut reader = fs::read("res/scripts/test.txt").unwrap();
+        let mut script_reader = ScriptReader::new(&mut reader);
+        let mut script_result = Script::default();
+        let mut number = 0;
+        while let Some(node) = script_reader.next_node() {
+            println!("{}", number);
+            let node = node.unwrap();
+            number += 1;
+            script_result.nodes.push(node);
+        }
+        script_result.prepare();
+
+        for node in script_result.nodes {
+            println!("{:#?}", node);
+        }
+
     }
 }

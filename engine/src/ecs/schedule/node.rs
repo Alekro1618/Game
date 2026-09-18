@@ -1,10 +1,13 @@
-use crate::ecs::{
-    schedule::schedule_system::ScheduleSystem, systems::node::SystemNode, worlds::World,
-};
+use std::collections::HashMap;
+
+use crate::{ecs::{
+    schedule::schedule_system::ScheduleSystem, systems::{node::SystemNode, system::System}, worlds::World,
+}, utils::SparseArray};
 
 #[derive(Default)]
 pub(crate) struct Systems {
     nodes: Vec<SystemNode>,
+    conditions : Vec<Vec<Box<dyn System<In = (), Out = bool>>>>,
 }
 
 impl Systems {
@@ -13,19 +16,24 @@ impl Systems {
         self.nodes.len()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SystemNode> {
-        self.nodes.iter_mut()
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut SystemNode, &mut Vec<Box<dyn System<In = (), Out = bool>>>)> {
+        self.nodes
+            .iter_mut()
+            .zip(self.conditions.iter_mut())
     }
 
-    pub fn apply(&mut self, world: &mut World) {
-        self.iter_mut().for_each(|n| n.apply(world));
-    }
-
-    pub fn insert(&mut self, system: ScheduleSystem) -> usize {
-        let index = self.nodes.len();
+    pub fn insert(
+        &mut self, 
+        system: ScheduleSystem, 
+        conditions: Vec<Box<dyn System<In = (), Out = bool>>>
+    ) -> usize {
+        let index = self.len();
         self.nodes.push(SystemNode::new(system));
+        self.conditions.push(conditions);
+
         index
     }
+
     #[allow(dead_code)]
     pub fn remove(&mut self, index: usize) -> bool {
         if self.len() <= index {

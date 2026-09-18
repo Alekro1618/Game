@@ -89,6 +89,10 @@ impl<A: Asset> Handle<A> {
         self.lazy
     }
 
+    pub fn unlazify(&mut self) {
+        self.lazy = false;
+    }
+
     pub fn lazy(mut self) -> Self {
         self.lazy = true;
         self

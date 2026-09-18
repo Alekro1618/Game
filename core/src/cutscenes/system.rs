@@ -1,6 +1,6 @@
 use engine::{asset::AssetServer, ecs::{change_detection::params::Mut, entities::id::EntityId, message::message_reader::MessageReader, query::filter::With, systems::{commands::Commands, query::Query}}, input::{button_input::ButtonInput, mouse::MouseButton}};
 
-use crate::{actions::events::AddAction, cutscenes::{actor::{Actor, actions::{Hide, MoveTo, SetState, Show}}, other::event::BackgroundTransition, script::{Command, CommandMessage, ScriptNodeMessage, TextReader, events::AdvanceScript}}};
+use crate::{actions::events::AddAction, cutscenes::{actor::{Actor, ActorBundle, actions::{Hide, MoveTo, SetState, Show}}, other::event::BackgroundTransition, script::{Command, CommandMessage, ScriptNodeMessage, TextReader, events::AdvanceScript}}};
 
 
 pub fn update_cutscene(
@@ -8,7 +8,7 @@ pub fn update_cutscene(
     mut script_messages : MessageReader<ScriptNodeMessage>,
     mut commands : Commands,
 ) {
-    for script_node in script_messages.read() {
+    for script_node in script_messages.drain() {
         match script_node {
             ScriptNodeMessage::Replica { text, speaker } => {
                 text_reader.push(text.clone());
@@ -17,7 +17,10 @@ pub fn update_cutscene(
                 text_reader.push(prompt.clone());
             },
             ScriptNodeMessage::Command(command) =>  {
-                on_command(command, &mut commands);
+                on_command(&command, &mut commands);
+            },
+            ScriptNodeMessage::ActorDefinition { name, definition } => {
+                commands.spawn(ActorBundle::new(definition.name, definition.start, definition.animation_manager));
             },
         }
     }
@@ -93,20 +96,5 @@ pub fn on_command(
         CommandMessage::PlayEffect(effect) => {
 
         },
-    }
-}
-
-
-pub fn read_text(
-    mut text_reader : Mut<TextReader>,
-    mouse_input : &ButtonInput<MouseButton>,
-    mut commands : Commands
-) {
-    if let Some((symbol, tag)) = text_reader.advance() {
-        println!("{}", symbol)
-    }
-
-    if mouse_input.just_pressed(MouseButton::Left) {
-        commands.trigger(AdvanceScript);
     }
 }

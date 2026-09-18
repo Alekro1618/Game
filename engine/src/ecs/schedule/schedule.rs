@@ -116,13 +116,10 @@ impl Schedule {
         self.label
     }
 
-    pub fn apply(&mut self, world: &mut World) {
-        self.systems.apply(world);
-    }
-
     pub fn add_systems<M>(&mut self, systems: impl IntoSchedule<ScheduleSystem, M>) -> &mut Self {
         self.executor_initialized = false;
-        self.systems.insert(systems.into_schedule().node);
+        let schedule = systems.into_schedule();
+        self.systems.insert(schedule.node, schedule.conditions);
         self
     }
 
@@ -131,15 +128,18 @@ impl Schedule {
             self.initialize(world);
         }
 
-        for node in self.systems.iter_mut() {
-            node.system.run((), world);
-            node.system.apply(world);
+        for (node, conditions) in self.systems.iter_mut() {
+            if conditions.iter_mut().all(|condition| condition.run((), world)) {
+                node.system.run((), world);
+                node.system.apply(world);
+            }
         }
     }
 
     fn initialize(&mut self, world: &mut World) {
         self.sort_systems();
-        for node in self.systems.iter_mut() {
+        for (node, conditions) in self.systems.iter_mut() {
+            conditions.iter_mut().for_each(|condition| condition.init(world));
             node.system.init(world);
         }
         self.executor_initialized = true;

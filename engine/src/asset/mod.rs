@@ -27,7 +27,7 @@ mod info;
 pub mod loader;
 mod service;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct AssetPath {
     path : &'static str
 }
@@ -52,6 +52,14 @@ impl Into<&'static str> for &AssetPath {
     }
 }
 
+impl From<Box<str>> for AssetPath {
+    fn from(value: Box<str>) -> Self {
+        Self {
+            path: Box::leak(value)
+        }
+    }
+}
+
 
 impl Serialize for AssetPath {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -68,9 +76,7 @@ impl<'de> Deserialize<'de> for AssetPath {
     {
         let path = String::deserialize(deserializer)?;
 
-        Ok(AssetPath {
-            path: Box::leak(path.into_boxed_str())
-        })
+        Ok(path.into_boxed_str().into())
     }
 }
 
@@ -276,9 +282,8 @@ impl AssetServer {
         let (base_asset_id, _base_handle, base_path) = {
             let mut infos = self.write_infos();
             let base_handle = infos
-                .get_or_create_path_handle_internal(path, Some(loader.asset_type_id()), true)
-                .ok()
-                .expect("msg")
+                .get_or_create_path_handle_internal(path, Some(loader.asset_type_id()), false)
+                .map_err(|err| (asset_index, path, err))?
                 .0;
             (&base_handle.index(), Some(base_handle), path)
         };

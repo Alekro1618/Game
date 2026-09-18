@@ -22,14 +22,32 @@ pub const FIXED_UPDATE: f32 = 2e-2;
 type RunnerFn = Box<dyn FnMut(App) -> Pin<Box<dyn Future<Output = AppExit>>>>;
 
 fn tick(app: &mut App, fixed_update: bool) -> Result<(), AppExit> {
-    app.pre_update();
-    app.update();
-    app.post_update();
+    app.run_schedule(ScheduleLabel::First);
+
     if fixed_update {
-        app.fixed_update();
+        app.run_schedule(ScheduleLabel::FixedPreUpdate);
     }
+    app.run_schedule(ScheduleLabel::PreUpdate);
+    
+    if fixed_update {
+        app.run_schedule(ScheduleLabel::FixedUpdate);
+       
+    }
+    app.run_schedule(ScheduleLabel::Update);
+
+    app.run_schedule(ScheduleLabel::SpawnScene);
+
+    if fixed_update {
+        app.run_schedule(ScheduleLabel::FixedPostUpdate);
+    }
+    app.run_schedule(ScheduleLabel::PostUpdate);
+
+    app.run_schedule(ScheduleLabel::AnimationSystems);
+
+    app.run_schedule(ScheduleLabel::Last);
 
     if let Some(exit) = app.should_exit() {
+        app.end();
         return Err(exit);
     };
 
@@ -40,9 +58,9 @@ async fn run_update(mut app: App) -> AppExit {
     let mut timer: f32 = 0.0;
     let mut fixed_update = true;
 
-    app.pre_start_up();
-    app.start_up();
-    app.post_start_up();
+    app.run_schedule(ScheduleLabel::PreStartup);
+    app.run_schedule(ScheduleLabel::Startup);
+    app.run_schedule(ScheduleLabel::PostStartup);
 
     loop {
         //TODO:macroquad
@@ -53,7 +71,6 @@ async fn run_update(mut app: App) -> AppExit {
         }
 
         if let Err(exit) = tick(&mut app, fixed_update) {
-            app.end();
             return exit;
         }
 
@@ -97,6 +114,10 @@ impl App {
             },
             runner: Box::new(wrap_run_update),
         }
+    }
+
+    pub fn run_schedule(&mut self, label : ScheduleLabel) {
+        self.sub_apps.run_schedule(label);
     }
 
     pub fn pre_start_up(&mut self) {

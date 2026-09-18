@@ -1,3 +1,5 @@
+use std::{marker::PhantomData, ops::{Deref, DerefMut}};
+
 use crate::{
     ecs::{
         change_detection::tick::Tick,
@@ -190,6 +192,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         let world: &'w mut World = unsafe { &mut *(self.world as *const World as *mut World) };
         Query::new(world, self.state, self.last_run, self.this_run)
     }
+
+    #[inline]
+    pub fn single_inner(self) -> Option<D::Item<'w, 's>> {
+        let mut query = self.into_iter();
+        query.next()
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> {
@@ -199,5 +207,31 @@ impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> 
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_inner()
+    }
+}
+
+
+pub struct Single<'w, 's, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w, 's>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Single<'w, 's, D, F> {
+    type Target = D::Item<'w, 's>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> DerefMut for Single<'w, 's, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
+    pub fn into_inner(self) -> D::Item<'w, 's> {
+        self.item
     }
 }

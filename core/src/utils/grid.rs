@@ -5,6 +5,8 @@ use bitvec::vec::{self, BitVec};
 use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, systems::{ query::Query}}, error::error::{Error, ErrorKind}, math::{transform::{self, Transform}, vec::Vec2}, render::color::Color};
 use engine_macros::{Component, Resource};
 
+use crate::utils::path::traverse_path;
+
 #[derive(Clone, Copy, Eq, Hash)]
 pub struct Point {
     x : usize, 
@@ -329,4 +331,32 @@ pub fn draw_grid(grid : &Grid) {
         }
     }
    
+}
+
+
+pub struct GridPlugin;
+
+impl Plugin for GridPlugin {
+    fn build(self, app:  &mut engine::app::App) {
+        app.add_systems(
+            ScheduleLabel::PreUpdate, 
+            smooth_point_to_transform
+        );
+        app.add_systems(
+            ScheduleLabel::PreUpdate, 
+            point_to_transform
+        );
+        app.add_systems(
+            ScheduleLabel::FixedUpdate, 
+            update_grid
+        );
+        app.add_systems(
+            ScheduleLabel::FixedUpdate, 
+            traverse_path
+        );
+        app.add_systems(
+            ScheduleLabel::Update, 
+            draw_grid
+        );
+    }
 }

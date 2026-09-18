@@ -2,7 +2,7 @@ use std::{any::type_name, marker::PhantomData};
 
 use crate::ecs::{
     change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
-        commands::{Commands, command::CommandQueue}, query::Query, system::{System, SystemInput},
+        commands::{Commands, command::CommandQueue}, query::{Query, Single}, system::{System, SystemInput},
     }, worlds::World,
 };
 
@@ -427,6 +427,26 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Quer
         state.query(world)
     }
 }
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Single<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+
+    type Item<'w> = Single<'w, 'w, D, F>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        QueryState::new(world)
+    }
+
+    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+        let query = state.query(world);
+        Single {
+             item: query.single_inner().expect(&format!("No matched entity for `Single<{}, {}>`", type_name::<D::State>(), type_name::<F::State>())), 
+             _filter: PhantomData 
+        }
+    }
+}
+
+
 
 pub struct HasSystemInput;
 

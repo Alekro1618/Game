@@ -1,6 +1,6 @@
 
 use crate::{
-    app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetServer, asset::Assets}, ecs::{
+    animation::sprite, app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetServer, asset::Assets}, ecs::{
         systems::query::Query, worlds::World,
     }, image::{Image, TempQuadImageStorage}, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite,
 };
@@ -17,28 +17,12 @@ impl Plugin for RenderPlugin {
             ScheduleLabel::Update,
             render,
         );
-        // .add_systems(
-        //     ScheduleLabel::Update, 
-        //     initiate_loading_for_sprites_with_lazy_handle
-        // );
 
         //let mut render_app = SubApp::new();
         //app.set_extract(extract);
         //render_app.insert_sub_app("Render", render_app);
         //TODO: REMAKE TO BE A SUBAPP
     }
-}
-
-fn initiate_loading_for_sprites_with_lazy_handle(
-    drawable: Query<&Sprite>,
-    asset_server : &AssetServer
-) {
-    drawable
-        .iter()
-        .filter_map(|sprite| 
-            sprite.texture.is_lazy().then(|| sprite.texture.path())
-        )
-        .for_each(|path| { asset_server.finally_load::<Image>(path); }); 
 }
 
 fn render(

@@ -27,7 +27,7 @@ impl<M: Message> Default for MessagePlugin<M> {
 impl<M: Message> Plugin for MessagePlugin<M> {
     fn build(self, app: &mut crate::app::App) {
         app.add_systems(
-            ScheduleLabel::PostUpdate,
+            ScheduleLabel::Last,
             |mut messages : Mut<Messages<M>>| { messages.clear(); }
         );
     }

@@ -1,7 +1,7 @@
-use engine::{animation::{AnimationState, manager::{AnimationManager, AnimationManagerPlayer}, player::{PlayerInstance, recording_player, texture_recording_player}, recording::{RecordPlayer, Recording}, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::handle::Handle, camera::{Camera, MainCamera}, ecs::{name::Name, query::filter::With, worlds::World}, math::{transform::Transform, vec::Vec2}};
+use engine::{animation::{AnimationState, manager::{AnimationManager, AnimationManagerPlayer}, player::{PlayerInstance, recording_player, texture_recording_player}, recording::{RecordPlayer, Recording}, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::handle::Handle, camera::{Camera, MainCamera}, ecs::{name::Name, query::filter::With, worlds::World}, math::{transform::Transform, vec::Vec2}, render::{color::Color, sprite::Sprite}};
 use engine_macros::{Bundle, Component};
 
-use crate::{actions::components::{ActionQueue, CurrentAction}, cutscenes::{Level, RelativePosition, actor::{animation::{ActorAnimationManager, ActorAnimationPlayer, ActorAnimationState}, systems::{appear_effect, hide_effect, transition_from_one_pos_to_another}}, relative_to_percent}};
+use crate::{actions::components::{ActionQueue, CurrentAction}, cutscenes::{Level, RelativePosition, actor::{animation::{ActorAnimationManager, ActorAnimationPlayer, ActorAnimationState}, systems::{animate_actor, appear_effect, hide_effect, pose_to_transform, transition_from_one_pos_to_another}}}};
 
 mod skelet;
 mod events;
@@ -64,11 +64,11 @@ impl TransitionPos {
 
         Self::new(
             Vec2 {
-                x: width * relative_to_percent(from), 
+                x: width * from.relative_to_percent(), 
                 y: 0.
             },
             Vec2 {
-                x: width * relative_to_percent(to), 
+                x: width * to.relative_to_percent(), 
                 y: 0. 
             }
         )
@@ -84,6 +84,8 @@ pub struct ActorBundle {
     actor : Actor,
     name : Name,
     pos : Pos,
+    sprite : Sprite,
+    transform : Transform,
     animation_state : ActorAnimationState,
     animation_player : ActorAnimationPlayer,
     animation_manager : ActorAnimationManager,
@@ -92,8 +94,8 @@ pub struct ActorBundle {
 } 
 
 impl ActorBundle {
-    pub fn new<S : ToString, S2 : ToString>(
-        name : S, 
+    pub fn new<S1 : ToString, S2 : ToString>(
+        name : S1, 
         start : S2, 
         animation_manager : Handle<AnimationManager<TextureState, TextureRecordingPlayer>>
     ) -> Self {
@@ -101,11 +103,13 @@ impl ActorBundle {
             actor: Actor,
             name: Name::from(name),
             pos: Pos(RelativePosition::OutOfBounds), 
+            sprite: Sprite::from_color(Color::RED, Vec2::new(100.0, 100.0)),
             animation_state: AnimationState(None), 
             animation_player: texture_recording_player(), 
             animation_manager: AnimationManagerPlayer::new(animation_manager, start),
             current_action : CurrentAction::new(),
-            action_queue: ActionQueue::new()
+            action_queue: ActionQueue::new(),
+            transform: Transform::IDENTITY
         }
     }
 }
@@ -118,6 +122,8 @@ impl Plugin for ActorPlugin {
         app
             .add_systems(ScheduleLabel::Update, transition_from_one_pos_to_another)
             .add_systems(ScheduleLabel::Update, hide_effect)
-            .add_systems(ScheduleLabel::Update, appear_effect);
+            .add_systems(ScheduleLabel::Update, appear_effect)
+            .add_systems(ScheduleLabel::Update, animate_actor)
+            .add_systems(ScheduleLabel::Update, pose_to_transform);
     }
 }

@@ -9,6 +9,8 @@ pub fn vec2(x: impl Into<f32>, y: impl Into<f32>) -> Vec2 {
     Vec2::new(x.into(), y.into())
 }
 
+
+
 #[derive(Clone, Copy, PartialEq, Default, Debug, Serialize, Deserialize)]
 pub struct Vec2 {
     pub x: f32,

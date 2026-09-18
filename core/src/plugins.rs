@@ -1,6 +1,6 @@
-use engine::{BasicPlugins, animation::AnimationPlugin, app::plugin::Plugin, camera::CameraPlugin, input::InputPlugin, render::sprite_renderer::RenderPlugin, ui::{UIPlugin, click::ClickEventPlugin}, utils::resources::ResourcePlugin};
+use engine::{BasicPlugins, animation::AnimationPlugin, app::plugin::Plugin, camera::CameraPlugin, input::InputPlugin, render::sprite_renderer::RenderPlugin, ui::{UIPlugin, click::ClickEventPlugin}, utils::{profiler::ProfilerPlugin, resources::ResourcePlugin}};
 
-use crate::{actions::ActionPlugin, client::ClientPlugin, cutscenes::{CutscenePlugin, script::ScriptPlugin}, enemy::EnemyPlugin, items::InventoryPlugin, machines::MachinePlugins, order::OrderPlugin, players::PlayerPlugin, service::ServicePlugin, ui::GameUIPlugin, utils::GridPlugin};
+use crate::{actions::ActionPlugin, client::ClientPlugin, cutscenes::{CutscenePlugin, script::ScriptPlugin}, enemy::EnemyPlugin, items::InventoryPlugin, machines::MachinePlugins, order::OrderPlugin, players::PlayerPlugin, service::ServicePlugin, ui::GameUIPlugin, utils::{grid::GridPlugin, mouse::GameCameraPlugin}};
 
 pub struct AllPlugins;
 
@@ -20,6 +20,7 @@ impl Plugin for AllPlugins {
         .add_plugin(OrderPlugin)
         .add_plugin(PlayerPlugin)
         .add_plugin(GameUIPlugin)
-        .add_plugin(CutscenePlugin);
+        .add_plugin(CutscenePlugin)
+        .add_plugin(GameCameraPlugin);
     }
 }

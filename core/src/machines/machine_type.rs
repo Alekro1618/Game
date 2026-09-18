@@ -13,7 +13,8 @@ pub enum MachineType {
     CoffeeBag,
     CashRegister,
     MilkStation,
-    Cutter
+    Cutter,
+    Table
 }
 
 impl Display for MachineType {
@@ -26,6 +27,7 @@ impl Display for MachineType {
             MachineType::CashRegister => write!(f, "Cash register"),
             MachineType::MilkStation => write!(f, "MilkStation"),
             MachineType::Cutter => write!(f, "Cutter"),
+            MachineType::Table => write!(f, "Table"),
         }
     }
 }

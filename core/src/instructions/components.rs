@@ -65,10 +65,16 @@ impl Display for SpecialLabel {
 
 #[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub enum InstructionLabel {
+    //Represents a full long command of creating an item starting from zero
     Create(Item),
+    //Command used to represent nest step of item creation process. Assumes user is able to do the next step
+    Continue(Item),
+    //Walk to machine and do nothing
     WalkTo(MachineType),
+    //Walk to machine and initiate fixing
     Fix(MachineType),
-    Special(SpecialLabel)
+    //Other labels
+    Special(SpecialLabel),
 }
 
 impl ToString for InstructionLabel {
@@ -78,6 +84,7 @@ impl ToString for InstructionLabel {
             InstructionLabel::WalkTo(machine_type) => machine_type.to_string(),
             InstructionLabel::Fix(machine_type) => machine_type.to_string(),
             InstructionLabel::Special(special_label) => special_label.to_string(),
+            InstructionLabel::Continue(item) => item.to_string(),
         }
     }
 }

@@ -1,21 +1,35 @@
+
+
 use proc_macro::TokenStream;
-use syn::{punctuated::Punctuated, *};
+use syn::{punctuated::Punctuated, token::Token, *};
 use quote::{format_ident, quote};
+use proc_macro_crate::crate_name;
 
 extern crate proc_macro;
+
+fn engine_path() -> proc_macro2::TokenStream {
+    match crate_name("engine").expect("Couldn't found `engine crate`") {
+        proc_macro_crate::FoundCrate::Itself => quote!(crate),
+        proc_macro_crate::FoundCrate::Name(name) => {
+            let ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
+            quote!(::#ident)
+        },
+    }
+}
 
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics engine::ecs::components::Component
+        impl #impl_generics #engine_path::ecs::components::Component
             for #name #ty_generics #where_clause {
-            const STORAGE_TYPE: engine::ecs::components::StorageType = engine::ecs::components::StorageType::Table;
+            const STORAGE_TYPE: #engine_path::ecs::components::StorageType = #engine_path::ecs::components::StorageType::Table;
 
-            type Mutability = engine::ecs::components::Mutable;
+            type Mutability = #engine_path::ecs::components::Mutable;
         }
     }
     .into()
@@ -25,17 +39,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics engine::ecs::components::Component
+        impl #impl_generics #engine_path::ecs::components::Component
             for #name #ty_generics #where_clause {
-            const STORAGE_TYPE: engine::ecs::components::StorageType = engine::ecs::components::StorageType::Table;
+            const STORAGE_TYPE: #engine_path::ecs::components::StorageType = #engine_path::ecs::components::StorageType::Table;
 
-            type Mutability = engine::ecs::components::Mutable;
+            type Mutability = #engine_path::ecs::components::Mutable;
         }
 
-        impl #impl_generics engine::ecs::resource::Resource
+        impl #impl_generics #engine_path::ecs::resource::Resource
             for #name #ty_generics #where_clause {
         }
     }
@@ -46,10 +61,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 pub fn derive_message(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
+
     quote! {
-        impl #impl_generics engine::ecs::message::Message
+        impl #impl_generics #engine_path::ecs::message::Message
             for #name #ty_generics #where_clause {
         }
     }
@@ -60,10 +77,11 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics engine::ecs::event::Event
+        impl #impl_generics #engine_path::ecs::event::Event
             for #name #ty_generics #where_clause {
         }
     }
@@ -75,10 +93,11 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics engine::asset::asset::Asset
+        impl #impl_generics #engine_path::asset::asset::Asset
             for #name #ty_generics #where_clause {
         }
     }
@@ -90,6 +109,7 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
 
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
@@ -99,29 +119,39 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         _ => panic!("Bundle can only be derived for structs"),
     };
 
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
     let field_names: Vec<_> = fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+    
+    let type_param_idents : Vec<_> = input
+        .generics
+        .type_params()
+        .map(|tp| &tp.ident)
+        .collect();
 
     let expanded = quote! {
-        impl engine::ecs::bundle::Bundle for #name {
+        impl #impl_generics #engine_path::ecs::bundle::Bundle 
+            for #name #ty_generics #where_clause {
+        
             fn component_ids(
-                components: &mut engine::ecs::components::register::ComponentsRegistrator,
-            ) -> impl Iterator<Item = (std::any::TypeId, engine::ecs::components::id::ComponentId)> + use<> {
-                <(#(#field_types),*) as engine::ecs::bundle::Bundle>::component_ids(components)
+                components: &mut #engine_path::ecs::components::register::ComponentsRegistrator,
+            ) -> impl Iterator<Item = (std::any::TypeId, #engine_path::ecs::components::id::ComponentId)> + use<#(#type_param_idents),*> {
+                <(#(#field_types),*) as #engine_path::ecs::bundle::Bundle>::component_ids(components)
             }
 
-            fn insert_into_table(self, components : &engine::ecs::components::id::ComponentIdsArray, table: &mut engine::ecs::storage::Table, tick : engine::ecs::change_detection::tick::Tick) {
+            fn insert_into_table(self, components : &#engine_path::ecs::components::id::ComponentIdsArray, table: &mut #engine_path::ecs::storage::Table, tick : #engine_path::ecs::change_detection::tick::Tick) {
                 let #name { #(#field_names),* } = self;
                 (#(#field_names,)*).insert_into_table(components, table, tick);
             }
 
-            fn replace_in_table(self, components : &engine::ecs::components::id::ComponentIdsArray, table: &mut engine::ecs::storage::Table, row : usize, tick : engine::ecs::change_detection::tick::Tick) {
+            fn replace_in_table(self, components : &#engine_path::ecs::components::id::ComponentIdsArray, table: &mut #engine_path::ecs::storage::Table, row : usize, tick : #engine_path::ecs::change_detection::tick::Tick) {
                 let #name { #(#field_names),* } = self;
                 (#(#field_names,)*).replace_in_table(components, table, row, tick);
             }
 
-            fn remove_from_table(components : &engine::ecs::components::id::ComponentIdsArray, table: &mut engine::ecs::storage::Table, row : usize, tick : engine::ecs::change_detection::tick::Tick) {
-                <(#(#field_types,)*) as engine::ecs::bundle::Bundle>::remove_from_table(components, table, row, tick);
+            fn remove_from_table(components : &#engine_path::ecs::components::id::ComponentIdsArray, table: &mut #engine_path::ecs::storage::Table, row : usize, tick : #engine_path::ecs::change_detection::tick::Tick) {
+                <(#(#field_types,)*) as #engine_path::ecs::bundle::Bundle>::remove_from_table(components, table, row, tick);
             }
         }
     };
@@ -133,12 +163,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
+    let engine_path  = engine_path();
     let name_str = name.to_string();
 
     let mut generics = input.generics.clone();
     for param in generics.params.iter_mut() {
         if let GenericParam::Type(type_param) = param {
-            type_param.bounds.push(parse_quote!(engine::ecs::::reflect::Reflect));
+            type_param.bounds.push(parse_quote!(#engine_path::ecs::::reflect::Reflect));
             type_param.bounds.push(parse_quote!(Clone));
             type_param.bounds.push(parse_quote!(Send));
             type_param.bounds.push(parse_quote!(Sync));
@@ -152,16 +183,16 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     where_clause.predicates.push(parse_quote! { #name #ty_generics: Clone });
 
     let expanded = quote! {
-        impl #impl_generics engine::ecs::reflect::Reflect for #name #ty_generics #where_clause {
-            fn as_reflect(&self) -> &dyn engine::ecs::reflect::Reflect {
+        impl #impl_generics #engine_path::ecs::reflect::Reflect for #name #ty_generics #where_clause {
+            fn as_reflect(&self) -> &dyn #engine_path::ecs::reflect::Reflect {
                 self
             }
 
-            fn into_reflect(self) -> Box<dyn engine::ecs::reflect::Reflect> {
+            fn into_reflect(self) -> Box<dyn #engine_path::ecs::reflect::Reflect> {
                 Box::new(self)
             }
 
-            fn reflect_clone(&self) -> Result<Box<dyn engine::ecs::reflect::Reflect>, engine::error::error::Error> {
+            fn reflect_clone(&self) -> Result<Box<dyn #engine_path::ecs::reflect::Reflect>, #engine_path::error::error::Error> {
                 Ok(Box::new(Clone::clone(self)))
             }
 
@@ -184,7 +215,7 @@ pub fn reflect(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemStruct);
 
     let traits = parse_macro_input!(attr with Punctuated::<Ident, Token![,]>::parse_terminated);
-
+    let engine_path  = engine_path();
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -192,16 +223,16 @@ pub fn reflect(attr: TokenStream, item: TokenStream) -> TokenStream {
     let inserts = traits.iter().map(|t| {
         let reflect_ident = format_ident!("Reflect{}", t);
         quote! {
-            type_register.insert::<engine::ecs::type_register::#reflect_ident>(engine::ecs::type_register::FromType::<Self>::from_type());
+            type_register.insert::<#engine_path::ecs::type_register::#reflect_ident>(#engine_path::ecs::type_register::FromType::<Self>::from_type());
         }
     });
 
     let expanded = quote! {
         #input
 
-        impl #impl_generics engine::ecs::type_register::GetTypeRegistration for #name #ty_generics #where_clause {
-            fn get_type_registration() -> engine::ecs::type_register::TypeRegistration {
-                let mut type_register = engine::ecs::type_register::TypeRegistration::of::<Self>();
+        impl #impl_generics #engine_path::ecs::type_register::GetTypeRegistration for #name #ty_generics #where_clause {
+            fn get_type_registration() -> #engine_path::ecs::type_register::TypeRegistration {
+                let mut type_register = #engine_path::ecs::type_register::TypeRegistration::of::<Self>();
                 #(#inserts)*
                 type_register
             }

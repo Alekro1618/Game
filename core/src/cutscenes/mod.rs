@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::entities::id::EntityId, math::vec::Vec2};
+use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, entities::id::EntityId, schedule::config::IntoSchedule}, input::{button_input::ButtonInput, keyboard::KeyCode, mouse::MouseButton}, math::vec::Vec2};
 use engine_macros::{Component, Resource};
 
-use crate::cutscenes::{actor::ActorPlugin, script::ScriptPlugin, system::{read_text, update_cutscene}};
+use crate::cutscenes::{actor::ActorPlugin, script::{ScriptPlugin, script_state::ScriptState}, system::{update_cutscene}};
 
 pub mod actor;
 pub mod script;
@@ -12,7 +12,7 @@ mod system;
 
 
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum RelativePosition {
     #[default]
     Center,
@@ -21,23 +21,24 @@ pub enum RelativePosition {
     Right(Level),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TransitionOption {
     Immidiate,
     Smooth,
 }
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Level {
     Top,
     #[default]
     Center, 
     Bottom,
-    Corner
+    Side
 }
 
-pub fn relative_to_percent(relative : RelativePosition) -> f32 {
-    match relative {
+impl RelativePosition {
+    pub fn relative_to_percent(&self) -> f32 {
+    match self {
         RelativePosition::Center => {
             0.5
         },
@@ -46,7 +47,7 @@ pub fn relative_to_percent(relative : RelativePosition) -> f32 {
                 Level::Top => 0.4,
                 Level::Center => 0.3,
                 Level::Bottom => 0.2,
-                Level::Corner => -0.1,
+                Level::Side => -0.1,
             }
         },
         RelativePosition::Right(level) => {
@@ -54,11 +55,12 @@ pub fn relative_to_percent(relative : RelativePosition) -> f32 {
                 Level::Top => 0.6,
                 Level::Center => 0.7,
                 Level::Bottom => 0.8,
-                Level::Corner => 1.1
+                Level::Side => 1.1
             }
         },
         RelativePosition::OutOfBounds => -1.0,
     }
+}
 }
 
 pub struct CutscenePlugin;
@@ -71,10 +73,9 @@ impl Plugin for CutscenePlugin {
             .add_systems(
             ScheduleLabel::Update, 
             update_cutscene
-            )
-            .add_systems(
-                ScheduleLabel::FixedUpdate, 
-                read_text
             );
+            
     }
 }
+
+

@@ -12,6 +12,15 @@ pub struct Machine {
     pub fix_time : Option<f32>,
 }
 
+#[derive(Component)]
+pub struct IsHolding;
+
+#[derive(Component)]
+pub struct TakesTime(f32);
+
+#[derive(Component)]
+pub struct FixTime(f32);
+
 
 impl Machine {
     #[inline]
@@ -48,8 +57,10 @@ impl From<MachineType> for Machine {
             },
             MachineType::Unknown => {
                 Self::new(false, None, None)
-            }
-            ,
+            },
+            MachineType::Table => {
+                Self::new(false, None, None)
+            },
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::{collections::{HashMap, HashSet}, sync::Arc};
 
-use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetPath, handle::Handle}, audio::audio_source::AudioSource, ecs::{entities::id::EntityId, message::message_writer::MessageWriter, observer::system_param::On, systems::commands::Commands}, image::Image};
+use engine::{animation::{manager::AnimationManager, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetPath, handle::Handle}, audio::audio_source::AudioSource, ecs::{entities::id::EntityId, message::message_writer::MessageWriter, observer::system_param::On, schedule::config::IntoSchedule, systems::commands::Commands}, image::Image, utils::Either};
 use engine_macros::{Asset, Message, Resource};
 
-use crate::cutscenes::{RelativePosition, TransitionOption, script::{events::AdvanceScript, reader::ScriptReader, script_loader::ScriptLoader, script_state::ScriptState, systems::{advance_script, on_advance}}};
+use crate::cutscenes::{RelativePosition, TransitionOption, script::{events::AdvanceScript, reader::ScriptReader, script_loader::ScriptLoader, script_state::ScriptState, systems::{advance_script, retrive_loaded_script, wants_to_load}}};
 
 mod systems;
 mod reader;
@@ -25,15 +25,24 @@ impl Plugin for ScriptPlugin {
             .init_asset_loader::<ScriptLoader>()
             .add_message::<ScriptNodeMessage>()
             .add_systems(
-                ScheduleLabel::PreUpdate,
+                ScheduleLabel::Update,
                 advance_script
             )
-            .add_observer(on_advance);
+            .add_systems(
+                ScheduleLabel::PostUpdate, 
+                retrive_loaded_script.run_if(wants_to_load)
+            );
     }
 }
 
-#[derive(Resource, Default)]
-pub struct CurrentScript(pub Script);
+#[derive(Resource)]
+pub struct CurrentScript(pub Option<Handle<Script>>, pub Option<Script>);
+
+impl Default for CurrentScript {
+    fn default() -> Self {
+        Self(None, Default::default())
+    }
+}
 
 #[derive(Asset, Default)]
 pub struct Script {
@@ -178,7 +187,7 @@ impl Script {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct  ActorDefinition {
     name : Box<str>,
     animation_manager : AssetPath,
@@ -195,6 +204,7 @@ impl ActorDefinition {
     }
 }
 
+#[derive(Debug)]
 pub enum ScriptNode {
     /// `speaker` "`text`"
     Replica {
@@ -235,6 +245,12 @@ pub enum ScriptNode {
     Pause
 }
 
+pub struct ActorDefinitionMessage {
+    pub name : Box<str>,
+    pub animation_manager : Handle<AnimationManager<TextureState, TextureRecordingPlayer>>,
+    pub start : Box<str>
+}
+
 #[derive(Message)]
 pub enum ScriptNodeMessage {
     Replica {
@@ -244,6 +260,10 @@ pub enum ScriptNodeMessage {
     Choice {
         prompt: Box<str>,
         choices : HashMap<Label, Box<str>>
+    },
+    ActorDefinition {
+        name : Box<str>,
+        definition: ActorDefinitionMessage
     },
     Command(CommandMessage),
 }
@@ -270,11 +290,11 @@ pub enum CommandMessage {
     PlayEffect(Handle<AudioSource>),
 }
 
-#[derive(Hash, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct Label(Box<str>);
 
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Command {
     ///show bg `background` `transition`
     ShowBackground(Box<str>, TransitionOption),

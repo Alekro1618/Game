@@ -62,7 +62,7 @@ impl Action for SetState {
     }
 
     fn is_finished(&self, agent : EntityId, world : &World) -> bool {
-        world.get_component::<ActorAnimationPlayer>(agent).unwrap().is_end
+        world.get_component::<ActorAnimationPlayer>(agent).map_or(true, |d|d.is_end)
     }
 }
 
@@ -92,7 +92,7 @@ impl Action for Hide {
     }
 
     fn is_finished(&self, agent : EntityId, world : &World) -> bool {
-        world.get_component::<HideEffect>(agent).unwrap().is_end
+        world.get_component::<HideEffect>(agent).map_or(true, |d|d.is_end)
     }
 }
 
@@ -125,6 +125,6 @@ impl Action for Show {
     }
 
     fn is_finished(&self, agent : EntityId, world : &World) -> bool {
-        world.get_component::<AppearEffect>(agent).unwrap().is_end
+        world.get_component::<AppearEffect>(agent).map_or(true, |d|d.is_end)
     }
 }

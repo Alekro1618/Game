@@ -6,6 +6,7 @@ mod render;
 mod tree;
 pub mod ui_node;
 pub mod widget;
+mod modifier;
 
 pub struct UIPlugin;
 

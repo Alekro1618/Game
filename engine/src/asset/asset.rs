@@ -168,15 +168,18 @@ impl<A: Asset> DenseAssetStorage<A> {
         index: AssetIndex,
         removed_action: impl FnOnce(&mut Self),
     ) -> Option<A> {
-        let value = match &mut self.storage[index.index as usize] {
-            Entry::None => return None,
-            Entry::Some { value, generation } => {
-                if *generation == index.generation {
-                    value.take().inspect(|_| self.len -= 1)
-                } else {
-                    return None;
+        let value = match self.storage.get_mut(index.index as usize) {
+            Some(entry) => match entry {
+                Entry::None => return None,
+                Entry::Some { value, generation } => {
+                    if *generation == index.generation {
+                        value.take().inspect(|_| self.len -= 1)
+                    } else {
+                        return None;
+                    }
                 }
-            }
+            },
+            None => None,
         };
         removed_action(self);
         value
@@ -188,6 +191,16 @@ impl<A: Asset> DenseAssetStorage<A> {
 
     pub(crate) fn iter(&self) -> impl Iterator<Item = &Entry<A>> {
         self.storage.iter()
+    }
+
+    pub(crate) fn drain(&mut self) -> impl Iterator<Item = A> {
+        self.storage
+            .drain(..)
+            .filter_map(|entry| match entry {
+                Entry::None => None,
+                Entry::Some { value, generation } => Some(value),
+            })
+            .filter_map(|entry| entry)
     }
 
     pub(crate) fn get(&self, index: AssetIndex) -> Option<&A> {
@@ -298,12 +311,12 @@ impl<A: Asset> Assets<A> {
     }
 
     #[inline]
-    pub(crate) fn remove(&mut self, index: AssetIndex) -> Option<A> {
+    pub fn remove(&mut self, index: AssetIndex) -> Option<A> {
         self.duplicate_handles.remove(&index);
         self.dense_storage.remove_still_alive(index)
     }
 
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) {
+    pub fn remove_dropped(&mut self, index: AssetIndex) {
         match self.duplicate_handles.get_mut(&index) {
             None => {}
             Some(0) => {
@@ -326,12 +339,17 @@ impl<A: Asset> Assets<A> {
     }
 
     #[inline]
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &Entry<A>> {
+    pub fn iter(&self) -> impl Iterator<Item = &Entry<A>> {
         self.dense_storage.iter()
     }
 
     #[inline]
-    pub(crate) fn iter_indicies(&self) -> impl Iterator<Item = AssetIndex> {
+    pub fn drain(&mut self) -> impl Iterator<Item = A> {
+        self.dense_storage.drain()
+    }
+
+    #[inline]
+    pub fn iter_indicies(&self) -> impl Iterator<Item = AssetIndex> {
         self.dense_storage
             .iter()
             .enumerate()
@@ -343,4 +361,5 @@ impl<A: Asset> Assets<A> {
                 }),
             })
     }
+
 }

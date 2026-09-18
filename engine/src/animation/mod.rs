@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     animation::{
-        loader::{AnimatableManagerMediaLoader, AnimatableMediaLoader}, manager::{AnimationManager, AnimationManagerPlayer}, player::{ Player, PlayerInstance}, recording::{RecordPlayer, Recording}, sprite::TextureRecordingPlayer,
-    }, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::asset::Assets, ecs::{
-        components::{Component, Mutable}, entities::id::EntityId, event::Event, observer::system_param::On, systems::query::Query,
-    }, math::{transform::Transform, vec::Vec2}, utils::resources::{GameSpeed, Time},
+        loader::{AnimatableManagerMediaLoader, AnimatableMediaLoader}, manager::{AnimationManager, AnimationManagerPlayer}, player::{ Player, PlayerInstance}, recording::{RecordPlayer, Recording}, sprite::{TextureRecording, TextureRecordingPlayer},
+    }, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetServer, asset::Assets}, ecs::{
+        change_detection::params::Mut, components::{Component, Mutable}, entities::id::EntityId, event::Event, observer::system_param::On, systems::query::Query,
+    }, image::Image, math::{transform::Transform, vec::Vec2}, utils::resources::{GameSpeed, Time},
 };
 
 mod loader;
@@ -133,6 +133,28 @@ fn on_next_transition<P: Player>(
     animation_manager_player.pick_next_transition(animation_manager, to);
 }
 
+fn initiate_loading_for_texture_recording(
+    mut recordings: Mut<Assets<TextureRecording>>,
+    players : Query<&mut PlayerInstance<TextureRecordingPlayer>>,
+    asset_server : &AssetServer
+) {
+    for handle in players
+        .iter()
+        .filter_map(
+            |player| player.player.handle().cloned()
+        ) 
+    {
+        let Some(recording) = recordings.get_mut(handle.index()) else {
+            continue;
+        };
+
+        if recording.image.is_lazy() {
+            recording.image.unlazify();
+            asset_server.finally_load::<Image>(recording.image.path());
+        }
+    }
+}
+
 pub struct AnimationManagerPlugin<P : Player>(PhantomData<P>);
 
 
@@ -152,11 +174,11 @@ impl<P: Player> Plugin for PlayerPlugin<P> {
             .init_asset_loader::<AnimatableMediaLoader<P::Recording, P::State>>()
             .init_asset_loader::<AnimatableManagerMediaLoader<P>>()
             .add_systems(
-                ScheduleLabel::Update, 
+                ScheduleLabel::AnimationSystems, 
                 advance_animation::<P>
             )
             .add_systems(
-                ScheduleLabel::Update, 
+                ScheduleLabel::AnimationSystems, 
                 advance_animation_manager::<P>
             )
             .add_observer(
@@ -172,6 +194,7 @@ impl Plugin for AnimationPlugin {
         app.add_plugin(PlayerPlugin::<RecordPlayer<f32>>::new())
             .add_plugin(PlayerPlugin::<RecordPlayer<Vec2>>::new())
             .add_plugin(PlayerPlugin::<RecordPlayer<Transform>>::new())
-            .add_plugin(PlayerPlugin::<TextureRecordingPlayer>::new());
+            .add_plugin(PlayerPlugin::<TextureRecordingPlayer>::new())
+            .add_systems(ScheduleLabel::AnimationSystems, initiate_loading_for_texture_recording);
     }
 }

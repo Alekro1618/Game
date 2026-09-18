@@ -40,7 +40,7 @@ impl Animatable for TextureState {
 }
 
 pub struct TextureRecording {
-    image : Handle<Image>,
+    pub image : Handle<Image>,
     frames : Vec<TextureFrame>,
     length : f32
 }

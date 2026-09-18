@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize, ser::Error};
+use std::any::Any;
 
-use crate::asset::{asset::Asset, handle::Handle};
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Either<A, B> {
     Left(A),
@@ -21,6 +21,13 @@ impl<A, B> Either<A, B> {
         match self {
             Self::Left(_) => panic!("Value was left. Unwraped as right."),
             Self::Right(b) => b,
+        }
+    }
+
+    pub fn swap(self) -> Either<B, A> {
+        match self {
+            Either::Left(a) => Either::Right(a),
+            Either::Right(b) => Either::Left(b),
         }
     }
 
@@ -59,36 +66,51 @@ impl<A, B> Either<A, B> {
         }
     }
 
-    pub fn expect_left<E: Error>(self, err: E) -> Result<A, E> {
+    pub fn expect_left<E>(self, err: E) -> Result<A, E> {
         match self {
             Self::Left(a) => Ok(a),
             Self::Right(_) => Err(err),
         }
     }
 
-    pub fn expect_right<E: Error>(self, err: E) -> Result<B, E> {
+    pub fn expect_right<E>(self, err: E) -> Result<B, E> {
         match self {
             Self::Left(_) => Err(err),
             Self::Right(b) => Ok(b),
         }
     }
-}
 
-impl<A, B> Either<A, B> {
     pub fn as_ref(&self) -> Either<&A, &B> {
         match self {
             Either::Left(left) => Either::Left(left),
             Either::Right(right) => Either::Right(right),
         }
     }
+
+    pub fn as_left(&self) -> Option<&A> {
+        match self {
+            Either::Left(left) => Some(left),
+            Either::Right(_) => None,
+        }
+    }
+
+    pub fn as_right(&self) -> Option<&B> {
+        match self {
+            Either::Left(_) => None,
+            Either::Right(right) => Some(right),
+        }
+    }
 }
 
-impl<A : Clone, B : Clone> Clone for Either<A, B> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Left(arg0) => Self::Left(arg0.clone()),
-            Self::Right(arg0) => Self::Right(arg0.clone()),
-        }
+impl<A : 'static, B : 'static> Either<A, B> {
+    pub fn matches<T : 'static>(&self) -> bool {
+        let l = self.type_id();
+        let r = match self {
+            Either::Left(a) => a.type_id(),
+            Either::Right(b) => b.type_id(),
+        };
+        
+        l == r
     }
 }
 
@@ -164,25 +186,6 @@ impl<A, B> Either<Option<A>, Option<B>> {
     }
 }
 
-impl<A : Asset, B : Serialize> Serialize for Either<Handle<A>, B> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer
-    {
-        match self {
-            Either::Left(_) => panic!("Can't serialize handle!"),
-            Either::Right(right) => right.serialize(serializer),
-        }
-    }
-}
-
-impl<'de, A : Asset, B : Deserialize<'de>> Deserialize<'de> for Either<Handle<A>, B> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de> {
-        let right = B::deserialize(deserializer)?;
-        Ok(Either::Right(right))
-    }
-}
 
 
 #[macro_export]
