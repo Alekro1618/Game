@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, usize};
 
 pub trait SparseArrayIndex {
-    fn index(&self) -> usize; 
+    fn index(&self) -> usize;
 }
 
 impl<N : Into<usize> + Copy> SparseArrayIndex for N {
@@ -48,6 +48,15 @@ impl <I: SparseArrayIndex, T> SparseArray<T, I>  {
     }
 
     #[inline]
+    pub fn remove(&mut self, index: I) -> Option<T> {
+        let index = index.index();
+        if self.values.len() == 0 {
+            return None;
+        }
+        std::mem::replace(&mut self.values[index], None)
+    }
+
+    #[inline]
     pub fn contains(&self, index: I) -> bool {
         self.values.get(index.index()).is_some_and(Option::is_some)
     }
@@ -55,5 +64,22 @@ impl <I: SparseArrayIndex, T> SparseArray<T, I>  {
     #[inline]
     pub fn get(&self, index: I) -> Option<&T> {
         self.values.get(index.index()).and_then(Option::as_ref)
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, index: I) -> Option<&mut T> {
+        self.values.get_mut(index.index()).and_then(Option::as_mut)
+    }
+
+}
+
+impl <I: SparseArrayIndex + From<usize>, T> SparseArray<T, I> {
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = (I, &T)>{
+        self.values
+            .iter()
+            .enumerate()
+            .filter_map(|(i, f)| f.as_ref().and_then(|d| Some((I::from(i), d))))
+            
     }
 }

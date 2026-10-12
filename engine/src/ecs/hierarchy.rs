@@ -73,7 +73,7 @@ impl Deref for Children {
 impl<'w, 's> CommandsPromise<'w, EntityId> {
     pub fn add_children(
         mut self,
-        fun: impl Fn(Commands) -> CommandsPromiseVec<EntityId> + Send + Sync + 'static,
+        fun: impl FnOnce(Commands) -> CommandsPromiseVec<EntityId> + Send + Sync + 'static,
     ) -> Commands<'w> {
         let promise = self.promise.transfer();
 

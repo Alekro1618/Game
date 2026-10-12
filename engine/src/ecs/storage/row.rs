@@ -14,12 +14,20 @@ impl<'a> RowRef<'a> {
         Self { elements: vec }
     }
 
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
     pub fn into_iter(self) -> impl Iterator<Item = ElementRef<'a>> {
         self.elements.into_iter().map(|(_, value)| value)
     }
 
     pub fn element_ref(&'a self, component_id: ComponentId) -> ElementRef<'a> {
         self.elements[&component_id]
+    }
+
+    pub fn contains(&'a self, component_id: ComponentId) -> bool {
+        self.elements.contains_key(&component_id)
     }
 }
 
@@ -43,5 +51,9 @@ impl<'a> RowRefMut<'a> {
 
     pub fn element_ref(&'a self, component_id: ComponentId) -> ElementRefMut<'a> {
         self.elements[&component_id]
+    }
+
+    pub fn contains(&'a self, component_id: ComponentId) -> bool {
+        self.elements.contains_key(&component_id)
     }
 }

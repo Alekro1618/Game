@@ -6,13 +6,13 @@ use crate::actions::{action::Action, components::{ActionQueue, CurrentAction}, e
 
 pub fn on_add_action(
     on : On<AddAction>,
-    mut world : Mut<World>,
+    world : &mut World,
 ) {
     let add_action = on.event();
     let agent = add_action.0;
 
     let action = add_action.1.into_boxed();
-    add_single_action(&mut world, action, agent);
+    add_single_action(world, action, agent);
 }
 
 pub fn add_single_action(
@@ -41,7 +41,7 @@ pub fn add_single_action(
 
 pub fn on_queue_actions(
     on : On<QueueActions>,
-    mut world : Mut<World>,
+    mut world : &mut World,
 ) {
     let queue_actions = on.event();
     let agent = queue_actions.0;
@@ -78,7 +78,7 @@ pub fn on_queue_actions(
 
 pub fn on_remove_action(
     on : On<RemoveAction>,
-    mut world : Mut<World>
+    mut world : &mut World,
 ) {
     let remove_action = on.event();
     let agent = remove_action.0;
@@ -123,7 +123,7 @@ pub fn update_actions(
 
 pub fn on_action_start(
     on : On<ActionEvent<Start>>,
-    mut world : Mut<World>,
+    mut world : &mut World,
 ) {
     let start_action = on.event();
     let agent = start_action.0;
@@ -152,7 +152,7 @@ pub fn on_action_start(
 
 pub fn on_action_finish(
     on : On<ActionEvent<Finish>>,
-    mut world : Mut<World>,
+    mut world : &mut World,
 ) {
     let finish_action = on.event();
     let agent = finish_action.0;
@@ -181,7 +181,7 @@ pub fn on_action_finish(
 
 pub fn on_action_stop(
     on : On<ActionEvent<Stop>>,
-    mut world : Mut<World>,
+    mut world : &mut World,
 ) {
     let end_action = on.event();
     let agent = end_action.0;

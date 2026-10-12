@@ -28,16 +28,6 @@ pub enum ScheduleLabel {
     ///
     /// See the [`Main`] schedule for some details about how schedules are run.
     PreUpdate,
-    /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
-    ///
-    /// If you need to order your variable timestep systems before or after
-    /// the fixed update logic, use the [`RunFixedMainLoopSystems`] system set.
-    ///
-    /// Note that in contrast to most other Bevy schedules, systems added directly to
-    /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
-    ///
-    /// See the [`Main`] schedule for some details about how schedules are run.
-    RunFixedMainLoop,
     /// Runs first in the [`FixedMain`] schedule.
     ///
     /// See the [`FixedMain`] schedule for details on how fixed updates work.
@@ -72,11 +62,6 @@ pub enum ScheduleLabel {
     /// See the [`FixedMain`] schedule for details on how fixed updates work.
     /// See the [`Main`] schedule for some details about how schedules are run.
     FixedLast,
-    /// The schedule that contains systems which only run after a fixed period of time has elapsed.
-    ///
-    /// This is run by the [`RunFixedMainLoop`] schedule. If you need to order your variable timestep systems
-    /// before or after the fixed update logic, use the [`RunFixedMainLoopSystems`] system set.
-    FixedMain,
     /// The schedule that contains any app logic that must run once per render frame.
     /// For most gameplay logic, consider using [`FixedUpdate`] instead.
     ///
@@ -101,6 +86,7 @@ pub enum ScheduleLabel {
     ///
     /// See the [`Main`] schedule for some details about how schedules are run.
     PostUpdate,
+    RenderSystems,
     /// Runs last in the schedule.
     ///
     /// See the [`Main`] schedule for some details about how schedules are run.
@@ -110,29 +96,28 @@ pub enum ScheduleLabel {
 }
 
 impl ScheduleLabel {
-    pub const ALL: [ScheduleLabel; 18] = [
+    pub const ALL: [ScheduleLabel; 17] = [
         ScheduleLabel::Main,
         ScheduleLabel::PreStartup,
         ScheduleLabel::Startup,
         ScheduleLabel::PostStartup,
         ScheduleLabel::First,
         ScheduleLabel::PreUpdate,
-        ScheduleLabel::RunFixedMainLoop,
         ScheduleLabel::FixedFirst,
         ScheduleLabel::FixedPreUpdate,
         ScheduleLabel::FixedUpdate,
         ScheduleLabel::FixedPostUpdate,
         ScheduleLabel::FixedLast,
-        ScheduleLabel::FixedMain,
         ScheduleLabel::Update,
         ScheduleLabel::SpawnScene,
         ScheduleLabel::PostUpdate,
+        ScheduleLabel::RenderSystems,
         ScheduleLabel::Last,
         ScheduleLabel::AnimationSystems,
     ];
-    pub const PER_FRAME: [ScheduleLabel; 9] = [
+    
+    pub const PER_FRAME: [ScheduleLabel; 8] = [
         ScheduleLabel::PreUpdate,
-        ScheduleLabel::RunFixedMainLoop,
         ScheduleLabel::FixedFirst,
         ScheduleLabel::FixedPreUpdate,
         ScheduleLabel::FixedUpdate,

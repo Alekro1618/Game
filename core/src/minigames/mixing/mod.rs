@@ -54,7 +54,7 @@ impl MiniGame for MixingMinigame {
 
 fn on_minigame_setup(commands : &mut Commands) {
     commands.spawn((
-        Spoon,
+        Spoon,  
         Transform::from_position(vec2(0.0, 0.0)))
     );
 }

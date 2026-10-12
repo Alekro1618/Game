@@ -5,7 +5,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::ecs::{components::info::TypeIdMap, hash::NoOpHash};
+use crate::{ecs::{components::info::TypeIdMap, hash::NoOpHash}, utils::SparseArrayIndex};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ComponentId {
@@ -27,6 +27,18 @@ impl Into<u32> for ComponentId {
 impl From<u32> for ComponentId {
     fn from(num: u32) -> Self {
         Self { id: num }
+    }
+}
+
+impl Into<usize> for ComponentId {
+    fn into(self) -> usize {
+        self.id as usize
+    }
+}
+
+impl From<usize> for ComponentId {
+    fn from(num: usize) -> Self {
+        Self { id: num as u32 }
     }
 }
 

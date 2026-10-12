@@ -1,5 +1,7 @@
-use engine::{app::{main_schedule::ScheduleLabel::Startup, plugin::Plugin}, camera::{Camera, SetMainCamera}, ecs::{entities::id::EntityId, hierarchy::{ChildOf, Children}, systems::{commands::Commands}, worlds::FromWorld}, math::{rect::Rect, vec::vec2}, render::color::Color, ui::{click::{ClickEvent, ClickEventPlugin, OnClick}, geometry::{UiRect, percent, px, vh, vw}, ui_node::{AlignItems, BackgroundColor, Display, JustifyContent, Node, OverflowClipBox::PaddingBox}, widget::Button}};
+use engine::{app::{main_schedule::ScheduleLabel::{PostUpdate, PreUpdate, Startup}, plugin::Plugin}, asset::AssetServer, camera::{Camera, SetMainCamera}, ecs::{entities::id::EntityId, hierarchy::{ChildOf, Children}, message::message_writer::MessageWriter, observer::system_param::On, schedule::config::{IntoSchedule, changed_state_to}, systems::commands::Commands, worlds::FromWorld}, exit::ExitGame, math::{rect::Rect, vec::vec2}, render::color::Color, ui::{click::{ClickEvent, ClickEventPlugin, OnClick}, geometry::{UiRect, percent, px, vh, vw}, ui_node::{AlignItems, BackgroundColor, Display, JustifyContent, Node, OverflowClipBox::PaddingBox}, widget::{Button, ImageNode, Text}}};
 use engine_macros::Event;
+
+use crate::game_state::GameState;
 
 pub struct MainMenu;
 
@@ -9,8 +11,9 @@ impl Plugin for MainMenu {
             .add_plugin(ClickEventPlugin::<MainMenuEvent>::new())
             .add_systems(
                 Startup, 
-                main_menu
-            );
+                main_menu.run_if(changed_state_to(GameState::Menu))
+            )
+            .add_observer(on_exit);
     }
 }
 
@@ -35,27 +38,31 @@ impl ClickEvent for MainMenuEvent  {
 
 impl MainMenuEvent {
     fn new(&self, commands : &mut Commands) {
-        println!("new");
+        
     }
 
     fn load(&self, commands : &mut Commands) {
-        println!("load")
+        println!("load");
     }
 
     fn settings(&self, commands : &mut Commands) {
-
+        println!("settings")
     }
 
     fn exit(&self, commands : &mut Commands) {
-
+        commands.trigger(Exit);
     }
 }
 
-pub fn main_menu(mut commands : Commands) {
-    commands.queue( |world| {
-        let entity = world.spawn((Camera::new(Rect::new(vec2(0., 0.), vec2(800., 800.))), ));
-        world.trigger_ref(&mut SetMainCamera(entity));
-    });
+#[derive(Event)]
+pub struct Exit;
+
+fn on_exit(on : On<Exit>, mut message_writer : MessageWriter<ExitGame>) {
+    message_writer.write(ExitGame::Force);
+}
+
+pub fn main_menu(mut commands : Commands, asset_server : &AssetServer) {
+    let button_texture = asset_server.load("res/images/ui/button.png");
 
     commands
         .spawn_with_id((
@@ -65,13 +72,11 @@ pub fn main_menu(mut commands : Commands) {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 display: Display::Block,
-                margin: UiRect::all(px(40)),
                 padding: UiRect::left(px(20)),
                 ..Default::default()
             },
-            BackgroundColor(Color::GREEN)
         ))
-        .add_children(|commands| {
+        .add_children(move |commands| {
             commands
                 .spawn_with_id((
                     Button,
@@ -80,16 +85,30 @@ pub fn main_menu(mut commands : Commands) {
                         width: percent(50),
                         height: px(20),
                         justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
                         display: Display::Block,
                         margin: UiRect::vertical(px(10)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::BLUE)
+                    ImageNode::new(button_texture.clone()),
+                    Text::new("New game")
                 )).and()
                 .spawn_with_id((
                     Button,
                     OnClick(MainMenuEvent::Load),
+                    Node { 
+                        width: percent(50),
+                        height: px(20),
+                        justify_content: JustifyContent::Center,
+                        display: Display::Block,
+                        margin: UiRect::vertical(px(10)),
+                        ..Default::default()
+                    },
+                    ImageNode::new(button_texture.clone()),
+                    Text::new("Load save")
+                ))
+                .spawn_with_id((
+                    Button,
+                    OnClick(MainMenuEvent::Settings),
                     Node { 
                         width: percent(50),
                         height: px(20),
@@ -99,7 +118,23 @@ pub fn main_menu(mut commands : Commands) {
                         margin: UiRect::vertical(px(10)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::RED)
+                    ImageNode::new(button_texture.clone()),
+                    Text::new("Settings")
+                ))
+                .spawn_with_id((
+                    Button,
+                    OnClick(MainMenuEvent::Exit),
+                    Node { 
+                        width: percent(50),
+                        height: px(20),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        display: Display::Block,
+                        margin: UiRect::vertical(px(10)),
+                        ..Default::default()
+                    },
+                    ImageNode::new(button_texture),
+                    Text::new("Exit")
                 ))
         });
 }

@@ -1,7 +1,7 @@
-use engine::{app::{main_schedule::ScheduleLabel::Startup, plugin::Plugin}, camera::{Camera, SetMainCamera}, ecs::{entities::id::EntityId, hierarchy::{ChildOf, Children}, systems::{commands::Commands}, worlds::{FromWorld, World}}, math::{rect::Rect, vec::vec2}, render::color::Color, ui::{click::{ClickEvent, ClickEventPlugin, OnClick}, geometry::{UiRect, percent, px, vh, vw}, ui_node::{AlignItems, BackgroundColor, Display, JustifyContent, Node, OverflowClipBox::PaddingBox}, widget::Button}};
+use engine::{app::{main_schedule::ScheduleLabel::{PreUpdate, Startup}, plugin::Plugin}, camera::{Camera, SetMainCamera}, ecs::{entities::id::EntityId, hierarchy::{ChildOf, Children}, schedule::config::{IntoSchedule, changed_state_to}, systems::commands::Commands, worlds::{FromWorld, World}}, math::{rect::Rect, vec::vec2}, render::color::Color, ui::{click::{ClickEvent, ClickEventPlugin, OnClick}, geometry::{UiRect, percent, px, vh, vw}, ui_node::{AlignItems, BackgroundColor, Display, JustifyContent, Node, OverflowClipBox::PaddingBox}, widget::Button}};
 use engine_macros::Event;
 
-use crate::{actions::events::AddAction, algos::path_finding::find_path, client::queue::SpawnRandomClient, instructions::{components::InstructionLabel, events::ExecuteInstruction}, items::{Item, food::Food}, machines::{machine_type::MachineType, register::MachineRegister}, players::{events::GoToPoint, player_actions::{Interact, SetPath}, player_register::PlayerRegister, player_type::{PlayerType, Service}}, utils::grid::{Grid, Point}};
+use crate::{actions::events::AddAction, algos::path_finding::find_path, client::queue::SpawnRandomClient, game_state::GameState, instructions::{components::InstructionLabel, events::ExecuteInstruction}, items::{Item, food::Food}, machines::{machine_type::MachineType, register::MachineRegister}, players::{events::GoToPoint, player_actions::{Interact, SetPath}, player_register::PlayerRegister, player_type::{PlayerType, Service}}, utils::grid::{Grid, Point}};
 
 pub struct Manager;
 
@@ -10,8 +10,8 @@ impl Plugin for Manager {
         app
             .add_plugin(ClickEventPlugin::<ManagerEvent>::new())
             .add_systems(
-                Startup, 
-                manager
+                PreUpdate, 
+                manager.run_if(changed_state_to(GameState::Simulator))
             );
     }
 }
@@ -62,7 +62,7 @@ pub fn manager(mut commands : Commands) {
         let entity = world.spawn((Camera::new(Rect::new(vec2(0., 0.), vec2(800., 800.))), ));
         world.trigger_ref(&mut SetMainCamera(entity));
     });
-
+    
     commands
         .spawn_with_id((
             Node {

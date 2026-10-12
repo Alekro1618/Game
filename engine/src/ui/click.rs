@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{
     app::{main_schedule::ScheduleLabel::Update, plugin::Plugin}, ecs::{
-        components::{Component, Mutable}, entities::id::EntityId, event::Event, schedule::config::{IntoSchedule, input_just_pressed}, systems::{
+        components::{Component, Mutable}, entities::id::EntityId, event::Event, query::filter::{Changed, With}, schedule::config::{IntoSchedule, input_just_pressed}, systems::{
             commands::Commands,
             query::Query,
         },

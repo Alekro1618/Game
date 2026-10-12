@@ -1,7 +1,8 @@
 
 use core::f32;
 
-use engine::{app::{main_schedule::ScheduleLabel::{self, PostStartup, PreStartup}, *}, asset::AssetServer, ecs::{change_detection::params::Mut, systems::commands::Commands}, math::vec::vec2, utils::Either::Left, window::Window};
+use engine::{app::{main_schedule::ScheduleLabel::{self, PostStartup, PreStartup}, *}, asset::AssetServer, camera::{Camera, SetMainCamera}, ecs::{change_detection::params::Mut, query::filter::Changed, systems::{commands::Commands, query::Query}}, math::{rect::Rect, vec::vec2}, utils::{Either::Left, profiler::ProfilerPlugin}, window::Window};
+use engine_macros::Component;
 use macroquad::{miniquad::conf::Platform, window::Conf};
 
 use crate::{client::queue::Queue, cutscenes::{Level::Top, RelativePosition, TransitionOption, actor::ActorBundle, script::{ActorDefinition, Command, CurrentScript, Script, ScriptNode}}, instructions::{components::{InstructionLabel, SpecialLabel, Step::{Interact, MoveTo, WaitUntil}}, manager::InstructionManager}, items::{Item::{self}, food::Food}, machines::{functions::MachineFunction, machine::Machine, machine_type::MachineType, state::MachineState}, players::{events::Spawn, player_type::Service}, plugins::AllPlugins, utils::grid::{self, Grid, GridParams, SpecialKeys}};
@@ -32,7 +33,7 @@ pub fn window_conf() -> Conf {
         high_dpi: false, 
         fullscreen: false, 
         sample_count: 1, 
-        window_resizable: false,
+        window_resizable: true,
         icon: None,
         platform: Platform::default()
     }
@@ -40,89 +41,40 @@ pub fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let window = Window::new(
-        vec2(800.0_f32, 800.0_f32), 
-        false
-    );
-
-    App::new()
-        .set_window(window)
+    let exit = App::new()
         .add_plugin(AllPlugins)
-        .add_systems(ScheduleLabel::PreStartup, setup)
+        .add_systems(ScheduleLabel::PreStartup, 
+            setup
+        )
         .run() 
         .await;
+
+    if let AppExit::Error(error) =  exit {
+        println!("{}", error);
+    }
 }
- 
+
+
 fn setup(
-    mut commands : Commands,
-    asset_server : &AssetServer,
-    mut current : Mut<CurrentScript>
+    commands : Commands,
 ) {
-    let handle = asset_server.load::<Script>("res/scripts/test.txt");
-    let mut instruction_manager = InstructionManager::default();
-
-    current.0 = Some(handle);
-
-    instruction_manager.create_new(
-        InstructionLabel::Create(Item::Food(Food::Espresso)), 
-        vec![
-            MoveTo((4, 1).into()),
-            Interact(MachineType::CoffeeBag, None),
-            MoveTo((0, 5).into()),
-            Interact(MachineType::CoffeeMachine, Some(Item::Food(Food::CoffeeBeans))),
-            WaitUntil(MachineType::CoffeeMachine),
-            Interact(MachineType::CoffeeMachine, None),
-            MoveTo((2, 3).into()),
-            Interact(MachineType::CashRegister, Some(Item::Food(Food::Espresso)))
-        ].into_iter()
-    );
-
-    instruction_manager.create_new(
-        InstructionLabel::Create(Item::Food(Food::Latte)), 
-        vec![
-            MoveTo((4, 1).into()),
-            Interact(MachineType::CoffeeBag, None),
-            MoveTo((0, 5).into()),
-            Interact(MachineType::CoffeeMachine, Some(Item::Food(Food::CoffeeBeans))),
-            WaitUntil(MachineType::CoffeeMachine),
-            Interact(MachineType::CoffeeMachine, None),
-            MoveTo((4, 4).into()),
-            Interact(MachineType::MilkStation, Some(Item::Food(Food::Espresso))),
-            WaitUntil(MachineType::MilkStation),
-            MoveTo((2, 3).into()),
-            Interact(MachineType::CashRegister, Some(Item::Food(Food::Latte)))
-        ].into_iter()
-    );
-
-    instruction_manager.create_new(
-        InstructionLabel::WalkTo(MachineType::CashRegister),
-        vec![
-            MoveTo((2, 2).into()),
-            Interact(MachineType::CashRegister, None)
-        ].into_iter(),
-    );
-
-    instruction_manager.create_new(
-        InstructionLabel::Special(SpecialLabel::Exit),
-        vec![
-            MoveTo((0, 0).into())
-        ].into_iter(),
-    );
-
-    commands.insert(instruction_manager);
+    commands
+        .spawn_with_id(Camera::new(Rect::new(vec2(0., 0.), vec2(800., 800.))))
+        .then(|mut commands, entity| {
+            commands.trigger(SetMainCamera(entity));
+        });
 }
 
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs};
 
 use engine::{animation::{manager::{AnimationManager, AnimationManagerErased, Transition, TransitionStyle}, recording::Recording, sprite::{TextureFrame, TextureRecording, TextureRecordingDeserializer, TextureState}}, asset::AssetPath, math::{rect::Rect, vec::vec2}};
 use postcard::{to_allocvec, to_vec};
 
     #[test]
     fn save_recording() {
-        
         let recording = TextureRecordingDeserializer::new(
             "res/images/ui/button.png".into(), 
             vec![

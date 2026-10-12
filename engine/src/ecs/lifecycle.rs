@@ -173,12 +173,7 @@ impl RemovedComponentMessages {
     pub fn new() -> Self {
         Self::default()
     }
-
-    pub fn update(&mut self) {
-        for (_component_id, _messages) in self.event_sets.iter_mut() {
-            todo!("update each message")
-        }
-    }
+    
     pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Vec<RemovedComponentEntity>)> {
         self.event_sets.iter()
     }

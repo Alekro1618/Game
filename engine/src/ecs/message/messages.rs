@@ -45,7 +45,7 @@ impl<M: Message> Messages<M> {
     }
 
     #[inline]
-    pub fn iter(&mut self) -> MessageIterator<'_, M> {
+    pub fn iter(&self) -> MessageIterator<'_, M> {
         MessageIterator {
             iter: self.messages.iter(),
         }

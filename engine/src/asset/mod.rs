@@ -8,7 +8,7 @@ use async_channel::{Receiver, Sender, unbounded};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::{
+    app::{main_schedule::ScheduleLabel::{self, PostUpdate}, plugin::Plugin}, asset::{
         asset::{Asset, AssetIndex, Assets},
         handle::{AssetHandleProvider, Handle, StrongHandle},
         info::AssetInfos,
@@ -24,10 +24,17 @@ pub mod handle;
 mod info;
 pub mod loader;
 mod service;
+pub mod event;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AssetPath {
     path : &'static str
+}
+
+impl Default for AssetPath {
+    fn default() -> Self {
+        Self { path: "" }
+    }
 }
 
 impl Into<AssetPath> for &'static str {
@@ -229,6 +236,14 @@ impl AssetServer {
         handle
     }
 
+    pub fn load_state(&self, id: AssetIndex) -> LoadState {
+        self.get_load_state(id).unwrap_or(LoadState::NotLoaded)
+    }
+
+    pub fn get_load_state(&self, id: AssetIndex) -> Option<LoadState> {
+        self.read_infos().get(id).map(|i| i.load_state.clone())
+    }
+
     pub(crate) fn spawn_load_task(
         &self,
         handle: StrongHandle,
@@ -338,8 +353,8 @@ impl AssetServer {
     }
 }
 
-pub fn handle_internal_asset_events(mut world: Mut<World>) {
-    world.resource_scope::<AssetServer>(|world, asset_server| {
+pub fn handle_internal_asset_events(world : &mut World) {
+    world.resource_scope(|world: &mut World, asset_server: &mut AssetServer| {
         let mut infos = asset_server.write_infos();
         while let Ok(message) = asset_server.data.reciever.try_recv() {
             match message {

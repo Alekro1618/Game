@@ -1,12 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    app::main_schedule::ScheduleLabel,
-    ecs::{
-        components::{Component, Mutable, StorageType},
-        resource::Resource,
-        schedule::{config::IntoSchedule, node::Systems, schedule_system::ScheduleSystem},
-        worlds::World,
+    app::main_schedule::ScheduleLabel, ecs::{
+        components::{Component, Mutable, StorageType}, resource::Resource, schedule::{self, config::{IntoSchedule, ScheduleConfig}, node::{SystemGraph, Systems}, schedule_system::ScheduleSystem}, worlds::World,
     },
 };
 
@@ -119,7 +115,9 @@ impl Schedule {
     pub fn add_systems<M>(&mut self, systems: impl IntoSchedule<ScheduleSystem, M>) -> &mut Self {
         self.executor_initialized = false;
         let schedule = systems.into_schedule();
-        self.systems.insert(schedule.node, schedule.conditions);
+        
+        self.systems.insert(SystemGraph::from_schedule(schedule));
+        
         self
     }
 
@@ -127,20 +125,16 @@ impl Schedule {
         if !self.executor_initialized {
             self.initialize(world);
         }
-
-        for (node, conditions) in self.systems.iter_mut() {
-            if conditions.iter_mut().all(|condition| condition.run((), world)) {
-                node.system.run((), world);
-                node.system.apply(world);
-            }
+  
+        for graph in self.systems.iter_mut() {
+            graph.run(world);
         }
     }
 
     fn initialize(&mut self, world: &mut World) {
         self.sort_systems();
-        for (node, conditions) in self.systems.iter_mut() {
-            conditions.iter_mut().for_each(|condition| condition.init(world));
-            node.system.init(world);
+        for graph in self.systems.iter_mut() {
+            graph.init(world);
         }
         self.executor_initialized = true;
     }

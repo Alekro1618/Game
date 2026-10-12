@@ -11,8 +11,8 @@ use crate::ecs::{
 
 pub struct Column {
     array: BlobArray,
-    changed_ticks: Vec<Tick>,
-    added_ticks: Vec<Tick>,
+    changed_ticks: Vec<UnsafeCell<Tick>>,
+    added_ticks: Vec<UnsafeCell<Tick>>,
 }
 
 impl Column {
@@ -53,8 +53,8 @@ impl Column {
         unsafe {
             self.array.push_unchecked(data);
         }
-        self.changed_ticks.push(tick);
-        self.added_ticks.push(tick);
+        self.changed_ticks.push(UnsafeCell::new(tick));
+        self.added_ticks.push(UnsafeCell::new(tick));
     }
 
     ///Safety: Caller is responsible for using generic type apropriate for the column.
@@ -62,8 +62,8 @@ impl Column {
         unsafe {
             self.array.replace_unchecked(data, row);
         }
-        self.changed_ticks.push(tick);
-        self.added_ticks.push(tick);
+        self.changed_ticks.insert(row, UnsafeCell::new(tick));
+        self.added_ticks.insert(row, UnsafeCell::new(tick));
     }
 
     pub unsafe fn move_to(&mut self, dst: &mut Self, row: usize, last_index: usize, tick: Tick) {
@@ -71,8 +71,11 @@ impl Column {
             self.array
                 .move_to_unchecked(&mut dst.array, row, last_index);
         }
-        self.changed_ticks.push(tick);
-        self.added_ticks.push(tick);
+
+        self.changed_ticks.swap_remove(row);
+        self.added_ticks.swap_remove(row);
+        dst.changed_ticks.push(UnsafeCell::new(tick));
+        dst.added_ticks.push(UnsafeCell::new(tick));
     }
 
     /// Get a slice to the data stored in this [`Column`].
@@ -83,6 +86,22 @@ impl Column {
     pub unsafe fn get_data_slice<T: Component>(&self, len: usize) -> &[UnsafeCell<T>] {
         // SAFETY: Upheld by caller
         unsafe { self.array.get_sub_slice(len) }
+    }
+
+    /// Get a slice to the changed [`ticks`](Tick) in this [`Column`].
+    ///
+    /// # Safety
+    /// - `len` must match the actual length of this column (number of elements stored)
+    pub fn get_changed_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
+        &self.changed_ticks[..len] 
+    }
+
+    /// Get a slice to the changed [`ticks`](Tick) in this [`Column`].
+    ///
+    /// # Safety
+    /// - `len` must match the actual length of this column (number of elements stored)
+    pub fn get_added_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
+        &self.added_ticks[..len] 
     }
 
     ///Safety:
@@ -104,5 +123,8 @@ impl Column {
         unsafe {
             self.array.swap_remove_unchecked(row, last_element_index);
         }
+
+        self.changed_ticks.swap_remove(row);
+        self.added_ticks.swap_remove(row);
     }
 }

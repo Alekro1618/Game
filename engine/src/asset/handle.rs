@@ -72,6 +72,20 @@ pub struct Handle<A: Asset> {
     _phantom: PhantomData<A>,
 }
 
+impl<A: Asset> Default for Handle<A> {
+    fn default() -> Self {
+        Self { 
+            strong_handle: Arc::new(StrongHandle {
+                index: AssetIndex { generation: 0, index: u32::MAX },
+                type_id: TypeId::of::<A>(),
+                path: AssetPath::default(),
+            }),
+            lazy: false,
+             _phantom: PhantomData
+        }
+    }
+}
+
 impl<A: Asset> Handle<A> {
     pub(crate) fn new(index: AssetIndex, path : AssetPath) -> Self {
         Self {

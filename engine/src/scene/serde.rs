@@ -7,12 +7,11 @@ use serde::{
 };
 
 use crate::{
-    ecs::{
+    asset::loader::LoadContext, ecs::{
         entities::id::EntityId,
         reflect::Reflect,
         type_register::TypeRegistry,
-    },
-    scene::{
+    }, scene::{
         deserialize::ReflectDeserializer,
         dynamic::{DynamicEntity, DynamicScene},
         registration::TypeRegistrationDeserializer,
@@ -161,14 +160,14 @@ enum EntityField {
 }
 
 /// Handles scene deserialization.
-pub struct SceneDeserializer<'a> {
+pub struct SceneDeserializer<'a, 'c> {
     /// Type registry in which the components and resources types used in the scene to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut str,
+    pub text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a, '_> {
     type Value = DynamicScene;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -186,12 +185,12 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     }
 }
 
-struct SceneVisitor<'a> {
+struct SceneVisitor<'a, 'c> {
     type_registry: &'a TypeRegistry,
-    text: &'a mut str,
+    text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for SceneVisitor<'a, '_> {
     type Value = DynamicScene;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -262,14 +261,14 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
 }
 
 /// Handles deserialization for a collection of entities.
-pub struct SceneEntitiesDeserializer<'a> {
+pub struct SceneEntitiesDeserializer<'a, 'c> {
     /// Type registry in which the component types used by the entities to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut str,
+    pub text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a, '_> {
     type Value = Vec<DynamicEntity>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -283,12 +282,12 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
     }
 }
 
-struct SceneEntitiesVisitor<'a> {
+struct SceneEntitiesVisitor<'a, 'c> {
     type_registry: &'a TypeRegistry,
-    text: &'a mut str,
+    text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a, '_> {
     type Value = Vec<DynamicEntity>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -314,16 +313,16 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
 }
 
 /// Handle deserialization of an entity and its components.
-pub struct SceneEntityDeserializer<'a> {
+pub struct SceneEntityDeserializer<'a, 'c> {
     /// Id of the deserialized entity.
     pub entity: EntityId,
     /// Type registry in which the component types used by the entity to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut str,
+    pub text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a, '_> {
     type Value = DynamicEntity;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -342,13 +341,13 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     }
 }
 
-struct SceneEntityVisitor<'a> {
+struct SceneEntityVisitor<'a, 'c> {
     entity: EntityId,
     registry: &'a TypeRegistry,
-    text: &'a mut str,
+    text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a, '_> {
     type Value = DynamicEntity;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -403,14 +402,14 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
 }
 
 /// Handles deserialization of a sequence of values with unique types.
-pub struct SceneMapDeserializer<'a> {
+pub struct SceneMapDeserializer<'a, 'c> {
     /// Type registry in which the types of the values to deserialize are registered.
     pub registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut str,
+    pub text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a, '_> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -424,12 +423,12 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
     }
 }
 
-struct SceneMapVisitor<'a> {
+struct SceneMapVisitor<'a, 'c> {
     registry: &'a TypeRegistry,
-    text: &'a mut str,
+    text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a, '_> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {

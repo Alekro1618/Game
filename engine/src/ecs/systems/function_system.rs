@@ -1,7 +1,7 @@
 use std::{any::type_name, marker::PhantomData};
 
 use crate::ecs::{
-    change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
+    change_detection::params::{ComponentTicksMut, Mut}, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
         commands::{Commands, command::CommandQueue}, query::{Query, Single}, system::{System, SystemInput},
     }, worlds::World,
 };
@@ -356,15 +356,15 @@ impl SystemParamTuple for &World {
     }
 }
 
-impl SystemParamTuple for Mut<'_, World> {
+impl SystemParamTuple for &'_ mut World {
     type State = ();
 
-    type Item<'w> = Mut<'w, World>;
+    type Item<'w> = &'w mut World;
 
     fn init_state(_world: &mut World) -> Self::State {}
 
     unsafe fn get_param<'w>(_state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
-        Mut { value: world }
+        world
     }
 }
 
@@ -440,8 +440,8 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Sing
     unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
         let query = state.query(world);
         Single {
-             item: query.single_inner().expect(&format!("No matched entity for `Single<{}, {}>`", type_name::<D::State>(), type_name::<F::State>())), 
-             _filter: PhantomData 
+            item: query.single_inner().expect(&format!("No matched entity for `Single<{}, {}>`", type_name::<D>(), type_name::<F>())), 
+            _filter: PhantomData 
         }
     }
 }

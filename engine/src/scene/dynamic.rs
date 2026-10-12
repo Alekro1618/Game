@@ -1,15 +1,13 @@
 
+use std::collections::HashMap;
+
+use engine_macros::Asset;
 use serde::Serialize;
 
 use crate::{
-    asset::asset::Asset,
-    ecs::{
-        entities::id::EntityId,
-        reflect::Reflect,
-        type_register::{ReflectComponent, TypeRegistry},
-        worlds::World,
-    },
-    scene::{scene::Scene, serde::SceneSerializer},
+    asset::asset::Asset, ecs::{
+        entities::id::EntityId, reflect::Reflect, type_register::{AppTypeRegistry, ReflectComponent, ReflectResource, TypeRegistry}, worlds::World,
+    }, error::error::{Error, ErrorKind}, scene::{scene::Scene, serde::SceneSerializer},
 };
 
 pub struct DynamicEntity {
@@ -17,6 +15,7 @@ pub struct DynamicEntity {
     pub components: Vec<Box<dyn Reflect>>,
 }
 
+#[derive(Asset)]
 pub struct DynamicScene {
     pub entities: Vec<DynamicEntity>,
     pub resources: Vec<Box<dyn Reflect>>,
@@ -45,9 +44,82 @@ impl DynamicScene {
     pub fn serialize(&self, registry: &TypeRegistry) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
+
+    pub fn write_to_world(
+        &self,
+        world: &mut World,
+    ) -> Result<HashMap<EntityId, EntityId>, Error> {
+        let registry = world.resource::<AppTypeRegistry>().clone();
+        self.write_to_world_with(world, &registry.0.read().unwrap())
+    }
+
+    pub fn write_to_world_with(
+        &self,
+        world: &mut World,
+        type_registry: &TypeRegistry,
+    ) -> Result<HashMap<EntityId, EntityId>, Error> {
+        let entities : Vec<(&DynamicEntity, EntityId)>= self
+            .entities
+            .iter()
+            .map(|entity| (entity, world.spawn_empty()))
+            .collect();
+
+        for (scene_entity, entity_id) in entities.iter() {
+            // Apply/ add each component to the given entity.
+            for component in &scene_entity.components {
+                let type_id = component.get_type_id().ok_or_else(|| {
+                    Error::new(ErrorKind::ECS, format!("No represented type {}", component.name()))
+                })?;
+                let registration = type_registry.get(type_id).ok_or_else(|| {
+                    Error::new(ErrorKind::ECS, format!("Unregistered but reflected type {}", component.name()))
+                })?;
+                let reflect_component =
+                    registration.data::<ReflectComponent>().ok_or_else(|| {
+                        Error::new(ErrorKind::ECS, format!("Unregistered component {}", component.name()))
+                    })?;
+
+                let component_id = reflect_component.register_component(world);
+
+                reflect_component.insert(
+                    world, 
+                    *entity_id, 
+                    component.as_reflect(), 
+                    type_registry
+                );
+            }
+        }
+
+        // Insert resources after all entities have been added to the world.
+        // This ensures the entities are available for the resources to reference during mapping.
+        for resource in &self.resources {
+            let type_id = resource.get_type_id().ok_or_else(|| {
+                Error::new(ErrorKind::ECS, format!("No represented type {}", resource.name()))
+            })?;
+            let registration = type_registry.get(type_id).ok_or_else(|| {
+                Error::new(ErrorKind::ECS, format!("Unregistered but reflected type {}", resource.name()))
+            })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                Error::new(ErrorKind::ECS, format!("Unregistered component {}", resource.name()))
+            })?;
+
+            let resource_id = reflect_resource.register_component(world);
+
+            reflect_resource.insert(
+                world,
+                resource.as_reflect(),
+                type_registry
+            );
+        }
+
+        Ok(entities
+            .into_iter()
+            .map(|(d, e)| (d.entity, e))
+            .collect()
+        )
+    }
+
 }
 
-impl Asset for DynamicScene {}
 
 pub struct DynamicSceneBuilder<'w> {
     world: &'w World,
@@ -130,14 +202,14 @@ impl<'w> DynamicSceneBuilder<'w> {
 
             let type_registration = self.type_registry.get(type_id).unwrap();
 
-            let component = type_registration
-                .data::<ReflectComponent>()
+            let resource = type_registration
+                .data::<ReflectResource>()
                 .unwrap()
                 .reflect(element_ref);
 
-            let component = component.reflect_clone().unwrap();
+            let resource = resource.reflect_clone().unwrap();
 
-            self.extracted_resources.push(component);
+            self.extracted_resources.push(resource);
         }
 
         self
@@ -156,10 +228,11 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::any::Any;
+    use std::any::{Any, TypeId};
 
     use downcast_rs::Downcast;
-    use serde::Serialize;
+    use engine_macros::{Component, Reflect, Resource, reflect};
+use serde::Serialize;
 
     use crate::{
         ecs::{
@@ -174,94 +247,26 @@ mod test {
         scene::dynamic::DynamicScene,
     };
 
-    #[derive(Serialize, Clone, Copy)]
+    #[derive(Serialize, Clone, Copy, Reflect, Component)]
+    #[reflect(Serialize, Component)]
     pub struct A;
 
-    impl Component for A {
-        const STORAGE_TYPE: StorageType = StorageType::Table;
-
-        type Mutability = Mutable;
-    }
-
-    impl Reflect for A {
-        fn as_reflect(&self) -> &dyn Reflect {
-            self as &dyn Reflect
-        }
-
-        fn into_reflect(self) -> Box<dyn Reflect> {
-            Box::new(self)
-        }
-
-        fn reflect_clone(&self) -> Result<Box<dyn Reflect>, crate::error::error::Error> {
-            Ok(Box::new(A))
-        }
-
-        fn name(&self) -> String {
-            "A".into()
-        }
-
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-    }
-
-    impl GetTypeRegistration for A {
-        fn get_type_registration() -> TypeRegistration {
-            let mut type_register = TypeRegistration::of::<A>();
-            type_register.insert::<ReflectComponent>(FromType::<Self>::from_type());
-            type_register.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-            type_register
-        }
-    }
-
-    #[derive(Serialize)]
+    #[derive(Serialize, Clone, Copy, Reflect, Component)]
+    #[reflect(Serialize, Component)]
     pub struct B {
         number: u32,
         check: bool,
     }
 
-    impl Component for B {
-        const STORAGE_TYPE: StorageType = StorageType::Table;
-
-        type Mutability = Mutable;
+    #[derive(Serialize, Clone, Reflect, Resource)]
+    #[reflect(Serialize, Resource)]
+    pub struct C {
+        list : Vec<u32>
     }
 
-    impl Reflect for B {
-        fn as_reflect(&self) -> &dyn Reflect {
-            self as &dyn Reflect
-        }
-
-        fn into_reflect(self) -> Box<dyn Reflect> {
-            Box::new(self)
-        }
-
-        fn reflect_clone(&self) -> Result<Box<dyn Reflect>, crate::error::error::Error> {
-            Ok(Box::new(Self {
-                number: self.number,
-                check: self.check,
-            }))
-        }
-
-        fn name(&self) -> String {
-            "B".into()
-        }
-
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-    }
-
-    impl GetTypeRegistration for B {
-        fn get_type_registration() -> TypeRegistration {
-            let mut type_register = TypeRegistration::of::<B>();
-            type_register.insert::<ReflectComponent>(FromType::<Self>::from_type());
-            type_register.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-            type_register
-        }
-    }
 
     #[test]
-    pub fn example_serialize() {
+    pub fn example_serialize_and_deserialize() {
         let mut world = World::new();
 
         world.spawn((A,));
@@ -272,11 +277,18 @@ mod test {
                 check: true,
             },
         ));
+
+        world.insert_resource(C {
+            list: vec![1, 2, 3]
+        });
+
         let mut type_registry = TypeRegistry::new();
         type_registry.register::<A>();
         type_registry.register::<B>();
+        type_registry.register::<C>();
 
         let dynamic_scene = DynamicScene::from_world(&world, &type_registry);
         let serialized = dynamic_scene.serialize(&type_registry).unwrap();
+        println!("{}", serialized);
     }
 }

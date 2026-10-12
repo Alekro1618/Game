@@ -139,6 +139,18 @@ impl Vec2 {
     pub fn map(self, action: impl Fn(f32) -> f32) -> Self {
         Self::new(action(self.x), action(self.y))
     }
+
+    #[inline]
+    pub fn min_element(self) -> f32 {
+        let min = |a, b| if a < b { a } else { b };
+        min(self.x, self.y)
+    }
+
+    #[inline]
+    pub fn max_element(self) -> f32 {
+        let max = |a, b| if a > b { a } else { b };
+        max(self.x, self.y)
+    }
 }
 
 impl Mul for Vec2 {

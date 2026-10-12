@@ -14,3 +14,9 @@ impl Into<macroquad::math::Vec2> for crate::math::vec::Vec2 {
         macroquad::math::Vec2::new(self.x, self.y)
     }
 }
+
+impl From<macroquad::math::Vec2> for crate::math::vec::Vec2 {
+    fn from(value: macroquad::math::Vec2) -> Self {
+        crate::math::vec::Vec2::new(value.x, value.y)
+    }
+}

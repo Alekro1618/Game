@@ -7,13 +7,7 @@ use std::{
 };
 
 use crate::ecs::{
-    bundle::Bundle,
-    components::Component,
-    entities::id::EntityId,
-    event::Event,
-    resource::Resource,
-    systems::commands::command::CommandQueue,
-    worlds::{World, log::print_component_of},
+    bundle::Bundle, change_detection::params::Mut, components::Component, entities::id::EntityId, event::Event, resource::Resource, systems::commands::command::CommandQueue, worlds::{World, log::print_component_of},
 };
 
 pub mod command;
@@ -231,6 +225,14 @@ impl<'w> Commands<'w> {
     pub fn queue(&mut self, fun: impl Fn(&mut World) -> () + Send + Sync + 'static) {
         self.queue.push(move |world| {
             fun(world);
+        });
+    }
+
+    pub fn with_resource<R: Resource>(&mut self, fun: impl Fn(Mut<R>) -> () + Send + Sync + 'static ) {
+        self.queue.push(move |world| {
+            if let Some(res) = world.get_resource_mut::<R>() {
+                fun(res);
+            }
         });
     }
 

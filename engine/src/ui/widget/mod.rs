@@ -19,10 +19,8 @@ use crate::ecs::worlds::World;
 pub struct WidgetId(u32);
 
 pub trait Widget {
-
     fn compose(&self, widget_id : WidgetId, world : &mut World);
 
-    fn update(&mut self, widget_id : WidgetId, world : &mut World);
 }
 
 pub struct WidgetTree {
@@ -35,10 +33,5 @@ impl WidgetTree {
     fn compose(&self, world : &mut World) {
         self.widget.compose(self.widget_id, world);
         self.inner.iter().for_each(|wt| wt.compose(world));
-    }
-
-    fn update(&mut self, world : &mut World) {
-        self.widget.update(self.widget_id, world);
-        self.inner.iter_mut().for_each(|wt| wt.update(world));
     }
 }

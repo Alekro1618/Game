@@ -31,8 +31,17 @@ impl From<String> for Text {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct TextSize(pub f32);
+#[derive(Debug, Clone)]
+pub struct TextFont(pub macroquad::text::Font);
+
+impl Component for TextFont {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    type Mutability = Mutable;
+}
+
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd)]
+pub struct TextSize(pub u16);
 
 impl Component for TextSize {
     const STORAGE_TYPE: StorageType = StorageType::Table;

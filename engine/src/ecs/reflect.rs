@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 use crate::error::error::Error;
 
@@ -11,6 +11,7 @@ where
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, Error>;
     fn name(&self) -> String;
     fn as_any(&self) -> &dyn Any;
+    fn get_type_id(&self) -> Option<TypeId>;
 }
 
 impl dyn Reflect {
@@ -18,4 +19,9 @@ impl dyn Reflect {
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
     }
+}
+
+
+pub trait FromReflect: Reflect + Sized {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
 }

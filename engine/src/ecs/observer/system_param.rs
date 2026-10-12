@@ -1,7 +1,9 @@
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
+
+use engine_macros::Event;
 
 use crate::ecs::{
-    event::Event, systems::system::SystemInput,
+    event::Event, resource::Resource, systems::system::SystemInput,
 };
 
 pub struct On<'w, E: Event> {
@@ -30,4 +32,7 @@ impl<'w, E: Event> On<'w, E> {
 }
 
 
-impl<'w, E: Event>  SystemInput for On<'w, E> {}
+impl<'w, E: Event> SystemInput for On<'w, E> {}
+
+#[derive(Event)]
+pub struct ResourceChanged<R: Resource>(PhantomData<R>);

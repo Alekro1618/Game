@@ -9,8 +9,8 @@ use crate::{
         asset::Asset,
         loader::AssetLoader,
     }, ecs::{
-        event::Event, message::{Message, MessagePlugin}, observer::distributed_storage::IntoObserver, resource::Resource, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::FromWorld,
-    }, window::Window,
+        event::Event, message::{Message, MessagePlugin, messages::Messages}, observer::distributed_storage::IntoObserver, resource::Resource, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::FromWorld,
+    }, exit::ExitGame, window::Window,
 };
 
 pub mod main_schedule;
@@ -44,12 +44,17 @@ fn tick(app: &mut App, fixed_update: bool) -> Result<(), AppExit> {
 
     app.run_schedule(ScheduleLabel::AnimationSystems);
 
-    app.run_schedule(ScheduleLabel::Last);
+    app.run_schedule(ScheduleLabel::RenderSystems);
 
     if let Some(exit) = app.should_exit() {
-        app.end();
         return Err(exit);
     };
+
+    app.run_schedule(ScheduleLabel::Last);
+
+    app.clear_trackers();
+
+    
 
     Ok(())
 }
@@ -120,36 +125,8 @@ impl App {
         self.sub_apps.run_schedule(label);
     }
 
-    pub fn pre_start_up(&mut self) {
-        self.sub_apps.pre_start_up();
-    }
-
-    pub fn start_up(&mut self) {
-        self.sub_apps.start_up();
-    }
-
-    pub fn post_start_up(&mut self) {
-        self.sub_apps.post_start_up();
-    }
-
-    pub fn pre_update(&mut self) {
-        self.sub_apps.pre_update();
-    }
-
-    pub fn post_update(&mut self) {
-        self.sub_apps.post_update();
-    }
-
-    pub fn update(&mut self) {
-        self.sub_apps.update();
-    }
-
-    pub fn fixed_update(&mut self) {
-        self.sub_apps.fixed_update();
-    }
-
-    pub fn end(&mut self) {
-        self.sub_apps.end();
+    pub fn clear_trackers(&mut self) {
+        self.sub_apps.clear_trackers();
     }
 
     pub async fn run(&mut self) -> AppExit {
@@ -159,19 +136,13 @@ impl App {
     }
 
     pub fn should_exit(&self) -> Option<AppExit> {
-        // let mut reader = MessageCursor::default();
-
-        // let messages = self.world().get_resource::<Messages<AppExit>>()?;
-        // let mut messages = reader.read(messages);
-
-        // if messages.len() != 0 {
-        //     return Some(
-        //         messages
-        //             .find(|exit| exit.is_error())
-        //             .cloned()
-        //             .unwrap_or(AppExit::Success),
-        //     );
-        // }
+        let messages = self.sub_apps.main.world().get_resource::<Messages<ExitGame>>()?;
+        for message in messages.iter() {
+            match message {
+                ExitGame::Force => return Some(AppExit::Success),
+                ExitGame::Error(error) => todo!(),
+            }
+        }
 
         None
     }

@@ -8,12 +8,9 @@ use std::{
 use async_channel::{Receiver, Sender, unbounded};
 
 use crate::{
-    asset::handle::AssetHandleProvider,
-    ecs::{
-        components::{Component, Mutable},
-        resource::Resource,
-    },
-    error::error::{Error, ErrorKind},
+    asset::{event::AssetEvent, handle::AssetHandleProvider}, ecs::{
+        change_detection::params::Mut, components::{Component, Mutable}, message::message_writer::MessageWriter, resource::Resource,
+    }, error::error::{Error, ErrorKind},
 };
 
 #[derive(Debug)]
@@ -62,6 +59,12 @@ pub struct AssetIndex {
 impl Into<usize> for AssetIndex {
     fn into(self) -> usize {
         self.index as usize
+    }
+}
+
+impl From<usize> for AssetIndex {
+    fn from(value: usize) -> Self {
+        AssetIndex { generation: 0, index: value as u32 }
     }
 }
 
@@ -260,6 +263,7 @@ pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
     handle_provider: AssetHandleProvider,
     duplicate_handles: HashMap<AssetIndex, u16>,
+    queued_events : Vec<AssetEvent<A>>
 }
 
 impl<A: Asset> Component for Assets<A> {
@@ -278,6 +282,7 @@ impl<A: Asset> Default for Assets<A> {
             dense_storage,
             duplicate_handles: Default::default(),
             handle_provider,
+            queued_events: Vec::new(),
         }
     }
 }
@@ -296,7 +301,14 @@ impl<A: Asset> Assets<A> {
     }
 
     pub(crate) fn insert_with_index(&mut self, index: AssetIndex, asset: A) -> Result<bool, Error> {
+        
         let replaced = self.dense_storage.insert(index, asset)?;
+        if replaced {
+            self.queued_events.push(AssetEvent::Modified { id: index });
+        } else {
+            self.queued_events.push(AssetEvent::Added { id: index });
+        }
+
         Ok(replaced)
     }
 
@@ -362,4 +374,17 @@ impl<A: Asset> Assets<A> {
             })
     }
 
+    pub(crate) fn asset_events(
+        mut assets: Mut<Self>,
+        mut messages: MessageWriter<AssetEvent<A>>,
+    ) {
+        //TOOD: Batch. not one by one
+        for event in assets.queued_events.drain(..) {
+            messages.write(event);
+        }
+    }
+
+    pub(crate) fn asset_events_condition(assets: &Self) -> bool {
+        !assets.queued_events.is_empty()
+    }
 }

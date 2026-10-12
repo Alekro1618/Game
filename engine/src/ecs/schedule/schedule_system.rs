@@ -10,6 +10,6 @@ impl Schedulable for ScheduleSystem {
     where
         Self: Sized,
     {
-        ScheduleConfig { node: self, conditions: Vec::new() }
+        ScheduleConfig::One { node: self, conditions: Vec::new() }
     }
 }

@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     app::{App, main_schedule::ScheduleLabel}, asset::{
-        AssetServer,
-        asset::{Asset, Assets},
-        loader::AssetLoader,
+        AssetServer, asset::{Asset, Assets}, event::AssetEvent, loader::AssetLoader,
     }, ecs::{
         event::Event, message::Message, resource::Resource, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::{FromWorld, World},
     }, window::Window,
@@ -127,6 +125,14 @@ impl SubApp {
         let assets = Assets::<A>::default();
         let asset_server = self.world.get_or_init_resource::<AssetServer>();
         asset_server.register_asset(&assets);
+
+        self.add_message::<AssetEvent<A>>()
+            .add_systems(
+                ScheduleLabel::PostUpdate,
+                Assets::<A>::asset_events
+                    .run_if(Assets::<A>::asset_events_condition)
+            );
+            
         self.world.insert_resource(assets);
 
         self
@@ -164,12 +170,6 @@ impl SubApp {
         self.world.add_observer(observer);
         self
     }
-
-    // pub fn add_message<M: Message>(&mut self) -> &mut Self {
-    //     MessageRegistry::register_message::<T>(self.world_mut());
-
-    //     self
-    // }
 }
 
 #[derive(Default)]
@@ -184,80 +184,12 @@ impl SubApps {
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             sub_app.extract(&mut self.main.world);
             sub_app.run_schedule(label);
-            sub_app.extract(&mut self.main.world);
+            self.main.extract(&mut sub_app.world);
         }
     }
 
-    pub fn pre_start_up(&mut self) {
-        self.main.pre_start_up();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.pre_start_up();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn start_up(&mut self) {
-        self.main.start_up();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.start_up();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn post_start_up(&mut self) {
-        self.main.post_start_up();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.post_start_up();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn pre_update(&mut self) {
-        self.main.pre_update();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.pre_update();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn update(&mut self) {
-        self.main.update();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.update();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn post_update(&mut self) {
-        self.main.post_update();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.post_update();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn fixed_update(&mut self) {
-        self.main.fixed_update();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.fixed_update();
-            sub_app.extract(&mut self.main.world);
-        }
-    }
-
-    pub fn end(&mut self) {
-        self.main.end();
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            sub_app.extract(&mut self.main.world);
-            sub_app.end();
-            sub_app.extract(&mut self.main.world);
-        }
+    pub fn clear_trackers(&mut self) {
+        self.main.world.clear_trackers();
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &SubApp> + '_ {

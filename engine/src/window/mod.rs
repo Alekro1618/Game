@@ -4,19 +4,20 @@ use macroquad::{
 };
 
 use crate::{
-    app::plugin::Plugin, ecs::{
-        change_detection::params::Mut, components::{Component, Mutable, StorageType}, event::Event, observer::system_param::On, resource::Resource,
-    }, math::vec::Vec2,
+    app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
+        change_detection::params::Mut, components::{Component, Mutable, StorageType}, event::Event, observer::system_param::On, resource::Resource, systems::commands::Commands,
+    }, math::vec::{Vec2, vec2},
 };
 
 pub struct Window {
     pub size: Vec2,
     pub fullscreen: bool,
+    pub is_resizable: bool
 }
 
 impl Window {
-    pub fn new(size: Vec2, fullscreen: bool) -> Self {
-        Self { size, fullscreen }
+    pub fn new(size: Vec2, fullscreen: bool, is_resizable : bool) -> Self {
+        Self { size, fullscreen, is_resizable }
     }
 }
 
@@ -33,6 +34,7 @@ impl Default for Window {
         Self {
             size: Vec2::new(0.0, 0.0),
             fullscreen: false,
+            is_resizable: false
         }
     }
 }
@@ -43,6 +45,13 @@ pub struct ApplyWindowSettings {
 }
 
 impl Event for ApplyWindowSettings {}
+
+fn setup_window(mut commands : Commands) {
+    let height = macroquad::window::screen_height();
+    let width = macroquad::window::screen_width();
+
+    commands.spawn(Window::new(vec2(height, width), false, true));
+}
 
 fn apply_window_settings(on: On<ApplyWindowSettings>, mut window: Mut<Window>) {
     let settings = on.event();
@@ -58,6 +67,19 @@ fn apply_window_settings(on: On<ApplyWindowSettings>, mut window: Mut<Window>) {
     }
 }
 
+fn detect_macro_window_change_and_apply(mut window: Mut<Window>) {
+    let height = macroquad::window::screen_height();
+    let width = macroquad::window::screen_width();
+    
+    if height != window.size.y {
+        window.size.y = height;
+    }
+
+    if width != window.size.x {
+        window.size.x = width;
+    }
+}
+
 pub struct WindowPlugin;
 
 impl Plugin for WindowPlugin {
@@ -65,6 +87,14 @@ impl Plugin for WindowPlugin {
         app
             .add_observer(
                 apply_window_settings,
+            )
+            .add_systems(
+                ScheduleLabel::PreStartup, 
+                setup_window
+            )
+            .add_systems(
+                ScheduleLabel::PreUpdate, 
+                detect_macro_window_change_and_apply
             );
     }
 }

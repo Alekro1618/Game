@@ -68,7 +68,7 @@ pub struct MouseWheel {
     pub y: f32,
 }
 
-pub fn mouse_button_input_system(mut mouse_button_input: Mut<'_, ButtonInput<MouseButton>>) {
+pub fn mouse_button_input_system(mut mouse_button_input: Mut<ButtonInput<MouseButton>>) {
     mouse_button_input.reset_all();
 
     if is_mouse_button_released(macroquad::input::MouseButton::Left) {

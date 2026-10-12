@@ -21,6 +21,7 @@ pub fn on_background_transition(
             transition.clone(), 
             camera.rect().size()
         ),
-        AppearEffect::new()
+        AppearEffect::new(),
+        Background
     ));
 }

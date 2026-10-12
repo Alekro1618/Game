@@ -3,7 +3,7 @@ use crate::ecs::{
 };
 
 pub trait WorldQuery {
-    type Fetch<'w>: Clone;
+    type Fetch<'w>;
     type State: Send + Sync + Sized;
 
     fn init_fetch<'w, 's>(

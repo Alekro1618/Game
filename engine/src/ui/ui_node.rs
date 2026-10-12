@@ -1,3 +1,5 @@
+use engine_macros::Component;
+
 use crate::{
     ecs::components::{Component, Mutable, StorageType},
     render::color::Color,
@@ -10,7 +12,7 @@ impl Component for Root {
     type Mutability = Mutable;
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Component, PartialEq, Debug)]
 pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -378,12 +380,6 @@ impl Default for Node {
     }
 }
 
-impl Component for Node {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
@@ -579,15 +575,9 @@ impl Default for JustifyContent {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`]'s children.
-    /// Use CSS Grid layout model to determine the position of this [`Node`]'s children.
-    Inline,
-    /// Use CSS Block layout model to determine the position of this [`Node`]'s children.
+    Flex,
+    Grid,
     Block,
-    /// Use no layout, don't render this node and its children.
-    ///
-    /// If you want to hide a node and its children,
-    /// but keep its layout in place, set its [`Visibility`] component instead.
     None,
 }
 

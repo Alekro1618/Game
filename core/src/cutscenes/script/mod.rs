@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, sync::Arc};
 use engine::{animation::{manager::AnimationManager, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::{AssetPath, handle::Handle}, audio::audio_source::AudioSource, ecs::{entities::id::EntityId, message::message_writer::MessageWriter, observer::system_param::On, schedule::config::IntoSchedule, systems::commands::Commands}, image::Image, utils::Either};
 use engine_macros::{Asset, Message, Resource};
 
-use crate::cutscenes::{RelativePosition, TransitionOption, script::{events::AdvanceScript, reader::ScriptReader, script_loader::ScriptLoader, script_state::ScriptState, systems::{advance_script, retrive_loaded_script, wants_to_load}}};
+use crate::cutscenes::{RelativePosition, TransitionOption, script::{events::AdvanceScript, reader::ScriptReader, script_loader::ScriptLoader, script_state::ScriptState, systems::{advance_script, retrive_loaded_script, script_is_advance, wants_to_load}}};
 
 mod systems;
 mod reader;
@@ -26,7 +26,7 @@ impl Plugin for ScriptPlugin {
             .add_message::<ScriptNodeMessage>()
             .add_systems(
                 ScheduleLabel::Update,
-                advance_script
+                advance_script.run_if(script_is_advance)
             )
             .add_systems(
                 ScheduleLabel::PostUpdate, 

@@ -1,3 +1,5 @@
+use engine_macros::Component;
+
 use crate::{
     asset::handle::Handle,
     ecs::components::{Component, Mutable, StorageType},
@@ -6,6 +8,7 @@ use crate::{
     render::color::Color,
 };
 
+#[derive(Component)]
 pub struct ImageNode {
     pub color: Color,
     pub image: Handle<Image>,
@@ -13,12 +16,6 @@ pub struct ImageNode {
     pub flip_y: bool,
     pub rect: Option<Rect>,
     pub image_mode: NodeImageMode,
-}
-
-impl Component for ImageNode {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
 }
 
 impl Default for ImageNode {

@@ -1,4 +1,4 @@
-use engine::{animation::{AnimationState, manager::{AnimationManager, AnimationManagerPlayer}, player::{PlayerInstance, recording_player, texture_recording_player}, recording::{RecordPlayer, Recording}, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::handle::Handle, camera::{Camera, MainCamera}, ecs::{name::Name, query::filter::With, worlds::World}, math::{transform::Transform, vec::Vec2}, render::{color::Color, sprite::Sprite}};
+use engine::{animation::{AnimationState, manager::{AnimationManager, AnimationManagerPlayer}, player::{PlayerInstance, recording_player, texture_recording_player}, recording::{RecordPlayer, Recording}, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::handle::Handle, camera::{Camera, MainCamera}, ecs::{name::Name, query::filter::With, worlds::World}, math::{transform::Transform, vec::Vec2}, render::{color::Color, sprite::{Anchor, Sprite}}};
 use engine_macros::{Bundle, Component};
 
 use crate::{actions::components::{ActionQueue, CurrentAction}, cutscenes::{Level, RelativePosition, actor::{animation::{ActorAnimationManager, ActorAnimationPlayer, ActorAnimationState}, systems::{animate_actor, appear_effect, hide_effect, pose_to_transform, transition_from_one_pos_to_another}}}};
@@ -61,15 +61,16 @@ impl TransitionPos {
 
         let rect = camera.rect();
         let width = rect.width();
+        let height = rect.height();
 
         Self::new(
             Vec2 {
                 x: width * from.relative_to_percent(), 
-                y: 0.
+                y: height
             },
             Vec2 {
                 x: width * to.relative_to_percent(), 
-                y: 0. 
+                y: height
             }
         )
     }
@@ -85,6 +86,7 @@ pub struct ActorBundle {
     name : Name,
     pos : Pos,
     sprite : Sprite,
+    anchor : Anchor,
     transform : Transform,
     animation_state : ActorAnimationState,
     animation_player : ActorAnimationPlayer,
@@ -103,7 +105,8 @@ impl ActorBundle {
             actor: Actor,
             name: Name::from(name),
             pos: Pos(RelativePosition::OutOfBounds), 
-            sprite: Sprite::from_color(Color::RED, Vec2::new(100.0, 100.0)),
+            sprite: Sprite::from_color(Color::RED, Vec2::new(300.0, 300.0)),
+            anchor: Anchor::BOTTOM_CENTER,
             animation_state: AnimationState(None), 
             animation_player: texture_recording_player(), 
             animation_manager: AnimationManagerPlayer::new(animation_manager, start),

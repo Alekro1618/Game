@@ -1,3 +1,5 @@
+use engine_macros::Component;
+
 use crate::{
     asset::handle::Handle,
     ecs::components::{Component, Mutable, StorageType},
@@ -81,5 +83,39 @@ impl Sprite {
         } else {
             panic!("Sprite doesn't have size");
         }
+    }
+}
+
+
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct Anchor(pub Vec2);
+
+impl Eq for Anchor {}
+
+impl Anchor {
+    pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
+    pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
+    pub const BOTTOM_RIGHT: Self = Self(Vec2::new(0.5, -0.5));
+    pub const CENTER_LEFT: Self = Self(Vec2::new(-0.5, 0.0));
+    pub const CENTER: Self = Self(Vec2::ZERO);
+    pub const CENTER_RIGHT: Self = Self(Vec2::new(0.5, 0.0));
+    pub const TOP_LEFT: Self = Self(Vec2::new(-0.5, 0.5));
+    pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
+    pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
+
+    pub fn as_vec(&self) -> Vec2 {
+        self.0
+    }
+}
+
+impl Default for Anchor {
+    fn default() -> Self {
+        Self::CENTER
+    }
+}
+
+impl From<Vec2> for Anchor {
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }

@@ -3,6 +3,11 @@ use engine::{asset::{AssetServer, asset::{Asset, Assets}}, ecs::{change_detectio
 use crate::cutscenes::{actor::Actor, script::{CurrentScript, Script, ScriptNodeMessage, events::AdvanceScript, reader::ScriptReader, script_state::ScriptState}};
 
 
+pub fn script_is_advance(
+    script_state : &ScriptState,
+) -> bool {
+    script_state.is_advance()
+}
 
 pub fn advance_script(
     script : &CurrentScript,
@@ -12,10 +17,6 @@ pub fn advance_script(
     actors : Query<(EntityId, &Name), With<Actor>>,
     asset_server: &AssetServer
 ) {
-    if !script_state.is_advance() {
-        return;
-    }
-
     let Some(ref script) = script.1 else {
         return;
     };

@@ -1,8 +1,8 @@
 
 use crate::{
-    app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
-        systems::query::Query, worlds::World,
-    }, image::TempQuadImageStorage, math::{transform::Transform, vec::Vec2}, render::sprite::Sprite,
+    app::{App, main_schedule::ScheduleLabel, plugin::Plugin}, camera::{Camera, MainCamera}, ecs::{
+        query::filter::With, systems::query::{Query, Single}, worlds::World,
+    }, image::TempQuadImageStorage, math::{transform::Transform, vec::Vec2}, render::sprite::{Anchor, Sprite},
 };
 
 pub struct RenderPlugin;
@@ -14,7 +14,7 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 impl Plugin for RenderPlugin {
     fn build(self, app: &mut App) {
         app.add_systems(
-            ScheduleLabel::Update,
+            ScheduleLabel::RenderSystems,
             render,
         );
 
@@ -26,17 +26,21 @@ impl Plugin for RenderPlugin {
 }
 
 fn render(
-    drawable: Query<(&Transform, &Sprite)>,
+    drawable: Query<(&Transform, &Sprite, Option<&Anchor>)>,
+    main_camera: Single<&Camera, With<MainCamera>>,
     temp_storage: &TempQuadImageStorage
 ) {
     //TODO:macroquad
     macroquad::window::clear_background(macroquad::color::WHITE);
-    for (transform, sprite) in drawable {
+    macroquad::camera::set_camera(*main_camera);
+    for (transform, sprite, anchor) in drawable {
+        let default_anchor = Anchor::default();
+        let anchor = anchor.unwrap_or(&default_anchor);
         if let Some(texture) = temp_storage.get(sprite.texture.index()) {
-            draw_with_image(transform, sprite, texture);
+            draw_with_image(transform, sprite, texture, anchor);
         } else {
             if sprite.custom_size.is_some() {
-                draw_with_custom_size(transform, sprite);
+                draw_with_custom_size(transform, sprite, anchor);
             } else {
                 draw_else(transform, sprite);
             }
@@ -48,16 +52,17 @@ fn draw_with_image(
     transform: &Transform,
     sprite: &Sprite,
     texture: &macroquad::texture::Texture2D,
+    anchor : &Anchor
 ) {
+    let texture_size = sprite.custom_size.unwrap_or(Vec2::from(texture.size()));
+
     macroquad::texture::draw_texture_ex(
         texture,
-        transform.position.x,
-        transform.position.y,
+        transform.position.x + 2. * texture_size.x * anchor.0.x,
+        transform.position.y + 2. * texture_size.y * anchor.0.y,
         (&sprite.color).into(),
         macroquad::texture::DrawTextureParams {
-            dest_size: sprite
-                .custom_size
-                .map(|v| v.mult_by(transform.scale).into()),
+            dest_size: Some(texture_size.mult_by(transform.scale).into()),
             source: sprite.rect.map(|r| r.into()),
             rotation: transform.rotation,
             flip_x: sprite.flip_x,
@@ -67,7 +72,7 @@ fn draw_with_image(
     );
 }
 
-fn draw_with_custom_size(transform: &Transform, sprite: &Sprite) {
+fn draw_with_custom_size(transform: &Transform, sprite: &Sprite, anchor : &Anchor) {
     //TODO:macroquad
     macroquad::shapes::draw_rectangle_ex(
         transform.position.x,

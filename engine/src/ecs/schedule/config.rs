@@ -1,17 +1,12 @@
-use crate::{ecs::{resource::Resource, schedule::schedule_system::ScheduleSystem, systems::{IntoSystem, system::System}}, input::button_input::ButtonInput};
+use crate::{ecs::{change_detection::params::Mut, resource::Resource, schedule::schedule_system::ScheduleSystem, systems::{IntoSystem, system::System}}, input::button_input::ButtonInput};
 use std::hash::Hash;
 
 pub type BoxedCondition<In = ()> = Box<dyn System<In = In, Out = bool>>;
 
-pub trait SystemCondition<Marker, In = ()>: IntoSystem<In, bool, Marker> 
-{
+pub trait SystemCondition<Marker, In = ()>: IntoSystem<In, bool, Marker> {}
 
-}
-
-impl<Marker, In, F> SystemCondition<Marker, In> for F where
-    F: IntoSystem<In, bool, Marker>
-{
-}
+impl<Marker, In, F> SystemCondition<Marker, In> for F
+where F: IntoSystem<In, bool, Marker> {}
 
 pub trait IntoSchedule<T: Schedulable, Marker>: Sized {
     fn into_schedule(self) -> ScheduleConfig<T>;
@@ -27,9 +22,15 @@ pub trait Schedulable {
         Self: Sized;
 }
 
-pub struct ScheduleConfig<T: Schedulable> {
-    pub(crate) node: T,
-    pub(crate) conditions: Vec<BoxedCondition>,
+pub enum ScheduleConfig<T: Schedulable> {
+    One {
+        node: T,
+        conditions: Vec<BoxedCondition>,
+    },
+    Many  {
+        children : Vec<ScheduleConfig<T>>,
+        conditions: Vec<BoxedCondition>,
+    }
 }
 
 impl<T : Schedulable> IntoSchedule<T, ()> for ScheduleConfig<T> {
@@ -38,7 +39,21 @@ impl<T : Schedulable> IntoSchedule<T, ()> for ScheduleConfig<T> {
     }
 
     fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> ScheduleConfig<T> {
-        self.conditions.push(new_condition(condition));
+        match &mut self {
+            ScheduleConfig::One { 
+                node, 
+                conditions 
+            } => {
+                conditions.push(new_condition(condition));
+            },
+            ScheduleConfig::Many { 
+                children, 
+                conditions 
+            } => {
+                conditions.push(new_condition(condition));
+            }
+        }
+
         self
     }
 }
@@ -48,12 +63,38 @@ where
     F: IntoSystem<(), (), Marker>,
 {
     fn into_schedule(self) -> ScheduleConfig<ScheduleSystem> {
-        ScheduleConfig {
+        ScheduleConfig::One {
             node: Box::new(IntoSystem::into_system(self)),
             conditions: Vec::new()
         }
     }
 }
+
+pub struct ScheduleConfigTupleMarker;
+macro_rules! impl_into_schedule {
+    ($(($param:ident, $marker:ident)),*) => {
+        impl<$($param),*, $($marker),*,> IntoSchedule<ScheduleSystem, (ScheduleConfigTupleMarker, $($marker),*,)> for ($($param,)+)
+        where 
+            $($param : IntoSchedule<ScheduleSystem, $marker>),*,
+        {
+            fn into_schedule(self) -> ScheduleConfig<ScheduleSystem> {
+                let ($($param,)+) = self;
+                ScheduleConfig::Many {
+                    children: vec![$($param.into_schedule(),)+], 
+                    conditions: Vec::new() 
+                }
+            }
+        }
+    };
+}
+
+impl_into_schedule!((A, M1), (B, M2));
+impl_into_schedule!((A, M1), (B, M2), (C, M3));
+impl_into_schedule!((A, M1), (B, M2), (C, M3), (D, M4));
+impl_into_schedule!((A, M1), (B, M2), (C, M3), (D, M4), (E, M5));
+
+
+
 
 
 fn new_condition<M>(condition: impl SystemCondition<M>) -> BoxedCondition {
@@ -64,7 +105,19 @@ fn new_condition<M>(condition: impl SystemCondition<M>) -> BoxedCondition {
 
 pub fn in_state<S : Resource + PartialEq + Eq>(state: S) -> impl FnMut(&S) -> bool {
     move |current_state: &S| {
-        *current_state == state
+        current_state.eq(&state)
+    }
+}
+
+pub fn resource_changed<S : Resource>() -> impl FnMut(Mut<S>) -> bool {
+    move |resource: Mut<'_, S>| {
+        resource.is_changed()
+    }
+}
+
+pub fn changed_state_to<S : Resource + PartialEq + Eq>(state : S) -> impl FnMut(Mut<S>) -> bool {
+    move |current_state: Mut<'_, S>| {
+        current_state.is_changed() && current_state.eq(&state)
     }
 }
 

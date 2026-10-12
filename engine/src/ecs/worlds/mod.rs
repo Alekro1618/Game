@@ -2,33 +2,17 @@ use std::{any::TypeId, sync::atomic::AtomicU32};
 
 
 use crate::{
-    app::main_schedule::ScheduleLabel,
-    ecs::{
-        archetype::{Archetype, ArchetypeId, Archetypes},
-        bundle::{Bundle, info::Bundles},
-        change_detection::{params::Mut, tick::Tick},
-        components::{
+    app::main_schedule::ScheduleLabel, ecs::{
+        archetype::{Archetype, ArchetypeId, Archetypes}, bundle::{Bundle, info::Bundles}, change_detection::{params::{ComponentTicksMut, Mut}, tick::Tick}, components::{
             Component,
             id::{ComponentId, ComponentIdsArray},
             info::{ComponentDescriptor, Components},
             register::{ComponentIds, ComponentsRegistrator},
-        },
-        entities::{Entities, EntityAllocator, EntityLocation, id::EntityId},
-        event::Event,
-        lifecycle::RemovedComponentMessages,
-        message::{Message, messages::Messages},
-        observer::centralized_storage::Observers,
-        query::{fetch::QueryData, filter::QueryFilter, state::QueryState},
-        resource::{Resource, ResourceEntities},
-        schedule::schedule::{Schedule, Schedules},
-        storage::{Storages, TableBuilder},
-        systems::{
+        }, entities::{Entities, EntityAllocator, EntityLocation, id::EntityId}, event::Event, hierarchy::{ChildOf, Children}, lifecycle::RemovedComponentMessages, message::{Message, messages::Messages}, observer::centralized_storage::Observers, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::{Resource, ResourceEntities}, schedule::schedule::{Schedule, Schedules}, storage::{Storages, TableBuilder}, systems::{
             commands::command::CommandQueue,
             observer_system::IntoObserverSystem,
-        },
-        worlds::{entity_ref::EntityMutRef, id::WorldId},
-    },
-    error::error::{Error, ErrorKind},
+        }, worlds::{entity_ref::{EntityMutRef, EntityRef}, id::WorldId},
+    }, error::error::{Error, ErrorKind},
 };
 pub mod assert;
 pub mod entity_ref;
@@ -162,7 +146,15 @@ impl World {
     }
 
     #[inline]
-    #[track_caller]
+    pub fn resource<R: Resource>(&mut self) -> & R{
+        match self.get_resource() {
+            Some(x) => x,
+            None => panic!("Requested resource does not exist in the `World`"),
+        }
+    }
+
+
+    #[inline]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
@@ -275,6 +267,13 @@ impl World {
         self.spawn_at_unchecked(entity, bundle)
     }
 
+     pub fn spawn_empty(&mut self) -> EntityId {
+        let entity = self.entity_allocator.allocate();
+        self.entities.alloc(entity.id(), entity.gnr());
+
+        self.spawn_empty_at_unchecked(entity)
+    }
+
     pub fn despawn(&mut self, entity: EntityId) {
         let location = self.entities.get_spawned(entity).unwrap();
         if self.entities.free(entity) {
@@ -283,7 +282,7 @@ impl World {
         }
     }
 
-    pub fn despawn_unchecked(&mut self, entity: EntityId, location: EntityLocation) {
+    fn despawn_unchecked(&mut self, entity: EntityId, location: EntityLocation) {
         let change_tick = self.change_tick();
 
         let table = self
@@ -443,6 +442,23 @@ impl World {
         self.bundles.register();
     }
 
+     pub fn spawn_empty_at_unchecked(&mut self, entity_id: EntityId) -> EntityId {
+        let archetype_id = self.get_or_create_archetype(Vec::new());
+
+        let archetype = self.archetypes.get_mut(archetype_id);
+        let table = &mut self.storages.tables[archetype.table_id() as usize];
+
+        let row = table.add_entity(entity_id);
+
+        let location = archetype.insert(entity_id, row as u32);
+
+        self.entities.set_location(entity_id, location);
+
+        self.bundles.register();
+
+        entity_id
+    }
+
     pub fn spawn_at_unchecked<B: Bundle>(&mut self, entity_id: EntityId, bundle: B) -> EntityId {
         let change_tick = self.change_tick();
         let component_ids: ComponentIdsArray =
@@ -522,10 +538,17 @@ impl World {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         let component_id = self.components().get_id(TypeId::of::<R>())?;
+        let last_run = self.last_change_tick();
+        let this_run = self.change_tick();
 
         self.resource_entities
-            .get_mut::<R>(component_id)
-            .map(|r| Mut { value: r })
+            .get_mut_with_ticks::<R>(component_id)
+            .map(|(r, added, changed)| Mut { value: r, ticks: ComponentTicksMut {
+                added,
+                changed,
+                last_run,
+                this_run,
+            } })
     }
 
     #[inline]
@@ -539,12 +562,13 @@ impl World {
         self.get_resource::<R>().unwrap()
     }
 
-    pub fn resource_scope<R: Resource>(&mut self, fun: impl FnOnce(&mut World, &mut R) -> ()) {
+    pub fn resource_scope<R: Resource, Out>(&mut self, fun: impl FnOnce(&mut World, &mut R) -> Out) -> Out {
         let mut resource = self.remove_resource::<R>().unwrap();
 
-        fun(self, &mut resource);
+        let out = fun(self, &mut resource);
 
         self.insert_resource(resource);
+        out
     }
 
     pub fn init_resource<R: Resource + Default>(&mut self) {
@@ -556,9 +580,10 @@ impl World {
     }
 
     pub fn insert_resource<R: Resource>(&mut self, value: R) -> ComponentId {
+        let change_tick = self.change_tick();
         let component_id = self.register_resource::<R>();
 
-        self.resource_entities.insert(component_id, value);
+        self.resource_entities.insert(component_id, value, change_tick);
         component_id
     }
 
@@ -588,7 +613,7 @@ impl World {
         let Some(mut schedule) = schedules.remove(label) else {
             return Err(Error::new(
                 ErrorKind::ECS,
-                "Error while trying to run schedule",
+                format!("Error while trying to run schedule for a label {:?}", label),
             ));
         };
 
@@ -621,8 +646,31 @@ impl World {
         }
     }
 
-    pub fn entity<'w>(&'w mut self, entity: EntityId) -> EntityMutRef<'w> {
-        let location = self.entities.get_spawned(entity).unwrap();
+    pub fn add_child(&mut self, parent : EntityId, child : EntityId) {
+        if let Some(children) = self.get_component_mut::<Children>(parent) {
+            children.0.push(child);
+        } else {
+            self.insert(parent, Children(vec![child]));
+        }
+
+        self.insert(child, ChildOf(parent));
+    }
+
+    pub fn entity<'w>(&'w self, entity: EntityId) -> Result<EntityRef<'w>, Error> {
+        let location = self.entities.get_spawned(entity)?;
+        let row = unsafe {
+            self.storages
+                .get_table(location.table_id as usize)
+                .unwrap()
+                .get_row(location.table_row as usize)
+                .unwrap()
+        };
+
+        Ok(EntityRef::new(&self.components, entity, location, row))
+    }
+
+    pub fn entity_mut<'w>(&'w mut self, entity: EntityId) -> Result<EntityMutRef<'w>, Error> {
+        let location = self.entities.get_spawned(entity)?;
         let row = unsafe {
             self.storages
                 .get_table_mut(location.table_id as usize)
@@ -631,7 +679,7 @@ impl World {
                 .unwrap()
         };
 
-        EntityMutRef::new(&self.components, entity, location, row)
+        Ok(EntityMutRef::new(&self.components, entity, location, row))
     }
 
     #[inline]
@@ -643,10 +691,21 @@ impl World {
     }
 
     #[inline]
-    #[track_caller]
     pub fn flush(&mut self) {
         let mut command_queue = std::mem::take(&mut self.command_queue);
         command_queue.apply(self);
+    }
+
+    pub fn clear_trackers(&mut self) {
+        self.last_change_tick = self.increment_change_tick();
+    }
+
+    #[inline]
+    pub fn increment_change_tick(&mut self) -> Tick {
+        let change_tick = self.change_tick.get_mut();
+        let prev_tick = *change_tick;
+        *change_tick = change_tick.wrapping_add(1);
+        Tick::new(prev_tick)
     }
 }
 
@@ -658,7 +717,6 @@ pub trait FromWorld {
 }
 
 impl<T: Default> FromWorld for T {
-    #[track_caller]
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }
@@ -669,15 +727,10 @@ mod tests {
     use std::{fmt::Display, vec};
 
     use crate::ecs::{
-        change_detection::tick::Tick,
-        components::{Component, Mutable, StorageType},
-        entities::id::EntityId,
-        query::filter::{With, Without},
-        systems::{
+        change_detection::tick::Tick, components::{Component, Mutable, StorageType}, entities::id::EntityId, query::filter::{Changed, With, Without}, systems::{
             commands::{Commands, command::CommandQueue},
             query::Query,
-        },
-        worlds::{World, log::print_component_of},
+        }, worlds::{World, log::print_component_of},
     };
 
     #[derive(PartialEq, Eq, Debug)]
@@ -829,7 +882,7 @@ mod tests {
         let mut flipper1 = false;
         let mut flipper2 = false;
 
-        let mut entity_ref = world.entity(entity);
+        let mut entity_ref = world.entity_mut(entity).unwrap();
         let t = entity_ref.get_mut::<T>();
         let a = entity_ref.get_mut::<A>();
 
@@ -957,6 +1010,30 @@ mod tests {
 
         for (entity) in list_2 {
             assert_eq!(world.get_component::<C>(entity), None);
+        }
+    }
+
+    #[test]
+    fn test_query_changed() {
+        let mut world = World::new();
+        let e1 = world.spawn((T(1)));
+        let e2 = world.spawn((T(2)));
+        let e3 = world.spawn((T(3)));
+
+        let state = world.query::<(&mut T)>();
+        let mut tick = Tick::new(0);
+        let query = Query::new(&mut world, &state, tick, tick);
+        for mut t in query {
+            if t.0 > 2 {
+                t.0 = 4;
+            }
+        }
+        tick = Tick::new(1);
+        let state = world.query_filtered::<(EntityId, &T), Changed<T>>();
+        let query = Query::new(&mut world, &state, tick, tick);
+        for (entity, t) in query.iter() {
+            assert_eq!(t.0, 4);
+            assert_eq!(entity, e3);
         }
     }
 

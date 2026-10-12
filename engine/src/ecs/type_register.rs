@@ -1,14 +1,13 @@
 use std::{
-    any::TypeId,
-    collections::HashMap,
+    any::TypeId, collections::HashMap, sync::{Arc, RwLock},
 };
 
 use downcast_rs::{Downcast, impl_downcast};
+use engine_macros::Resource;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ecs::{components::Component, reflect::Reflect, storage::element_ref::ElementRef},
-    error::error::{Error, ErrorKind},
+    ecs::{components::{Component, id::ComponentId}, entities::id::EntityId, reflect::{FromReflect, Reflect}, resource::Resource, storage::element_ref::ElementRef, worlds::World}, error::error::{Error, ErrorKind},
 };
 
 pub trait TypeData: Downcast + Send + Sync
@@ -52,6 +51,9 @@ impl TypeRegistration {
     }
 }
 
+#[derive(Resource, Clone)]
+pub struct AppTypeRegistry(pub Arc<RwLock<TypeRegistry>>);
+
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     type_path_to_id: HashMap<&'static str, TypeId>,
@@ -87,6 +89,12 @@ impl TypeRegistry {
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }
+
+    pub fn get_type_data<T: TypeData>(&self, type_id: TypeId) -> Option<&T> {
+        self.get(type_id)
+            .and_then(|registration| registration.data::<T>())
+    }
+
 
     pub fn get_with_type_path(&self, type_path: &str) -> Result<&TypeRegistration, Error> {
         let type_id = self.type_path_to_id.get(type_path).ok_or(Error::new(
@@ -158,18 +166,141 @@ impl ReflectSerialize {
 
 pub struct ReflectComponent {
     pub reflect: for<'w> fn(ElementRef<'w>) -> &'w dyn Reflect,
+    pub register_component: fn(&mut World) -> ComponentId,
+    pub insert: fn(&mut World, EntityId, &dyn Reflect, &TypeRegistry)
 }
 
 impl ReflectComponent {
     pub fn reflect<'w>(&self, element_ref: ElementRef<'w>) -> &'w dyn Reflect {
         (self.reflect)(element_ref)
     }
+
+    pub fn register_component(&self, world: &mut World) -> ComponentId {
+        (self.register_component)(world)
+    }
+
+    pub fn insert(&self, world: &mut World, entity : EntityId, reflect : &dyn Reflect, type_registry: &TypeRegistry) {
+        (self.insert)(world, entity, reflect, type_registry)
+    }
 }
+
 
 impl<C: Component + Reflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent {
             reflect: |entity: ElementRef<'_>| unsafe { entity.get::<C>() },
+            register_component: |world: &mut World| world.register_component::<C>(),
+            insert: |world : &mut World, entity : EntityId, reflect : &dyn Reflect, type_registry : &TypeRegistry| {
+                let component = from_reflect_with_fallback::<C>(reflect, world, type_registry);
+
+                world.insert(entity, component);
+            }
         }
     }
+}
+
+
+pub struct ReflectResource {
+    pub reflect: for<'w> fn(ElementRef<'w>) -> &'w dyn Reflect,
+    pub register_component: fn(&mut World) -> ComponentId,
+    pub insert: fn(&mut World, &dyn Reflect, &TypeRegistry)
+}
+
+impl<R: Resource + Reflect> FromType<R> for ReflectResource {
+    fn from_type() -> Self {
+        ReflectResource {
+            reflect: |entity: ElementRef<'_>| unsafe { entity.get::<R>() },
+            register_component: |world: &mut World| world.register_component::<R>(),
+            insert: |world : &mut World, reflect : &dyn Reflect, type_registry : &TypeRegistry| {
+                let resource = from_reflect_with_fallback::<R>(reflect, world, type_registry);
+
+                world.insert_resource(resource);
+            }
+        }
+    }
+}
+
+impl ReflectResource {
+    pub fn reflect<'w>(&self, element_ref: ElementRef<'w>) -> &'w dyn Reflect {
+        (self.reflect)(element_ref)
+    }
+
+    pub fn register_component(&self, world: &mut World) -> ComponentId {
+        (self.register_component)(world)
+    }
+
+    pub fn insert(&self, world: &mut World, reflect : &dyn Reflect, type_registry: &TypeRegistry) {
+        (self.insert)(world, reflect, type_registry)
+    }
+}
+
+
+
+
+pub struct ReflectFromReflect {
+    from_reflect: fn(&dyn Reflect) -> Option<Box<dyn Reflect>>,
+}
+
+impl ReflectFromReflect {
+    pub fn from_reflect(&self, reflect_value: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+        (self.from_reflect)(reflect_value)
+    }
+}
+
+impl<T: FromReflect> FromType<T> for ReflectFromReflect {
+    fn from_type() -> Self {
+        Self {
+            from_reflect: |reflect_value| {
+                T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn Reflect>)
+            },
+        }
+    }
+}
+
+
+pub fn from_reflect_with_fallback<T: Reflect>(
+    reflected: &dyn Reflect,
+    world: &mut World,
+    registry: &TypeRegistry,
+) -> T {
+    #[inline(never)]
+    fn type_erased(
+        reflected: &dyn Reflect,
+        world: &mut World,
+        registry: &TypeRegistry,
+        id: TypeId,
+        name : String
+    ) -> Box<dyn core::any::Any> {
+        // First, try `FromReflect`. This is handled differently from the others because
+        // it doesn't need a subsequent `apply` and may fail.
+        // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
+        let value= if let Some(value) = registry
+            .get_type_data::<ReflectFromReflect>(id)
+            .and_then(|reflect_from_reflect| reflect_from_reflect.from_reflect(reflected))
+        {
+            value
+        } else {
+            panic!(
+                "Couldn't create an instance of `{}` using the reflected `FromReflect`", name
+            );
+        };
+        assert_eq!(
+            value.as_any().type_id(),
+            id,
+            "The registration for the reflected `{}` produced \
+            a value of a different type",
+            name
+        );
+        value
+    }
+
+    *type_erased(
+        reflected,
+        world,
+        registry,
+        TypeId::of::<T>(),
+        reflected.name()
+    )
+    .downcast::<T>()
+    .unwrap()
 }

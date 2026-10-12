@@ -1,19 +1,17 @@
 use std::{
-    alloc::{Layout, alloc},
-    collections::HashMap,
+    alloc::{Layout, alloc}, cell::UnsafeCell, collections::HashMap,
 };
 
-use crate::ecs::{
-    components::{Component, Mutable, id::ComponentId},
-    storage::{blob_ref::BlobRef, element_ref::ElementRef},
-};
+use crate::{ecs::{
+    change_detection::tick::Tick, components::{Component, Mutable, id::ComponentId}, storage::{blob_ref::BlobRef, element_ref::ElementRef},
+}, utils::SparseArray};
 
 pub trait Resource: Component<Mutability = Mutable> {}
 
 struct ResourceData {
     data: *mut u8,
     drop_fn: unsafe fn(*mut u8),
-    layout: std::alloc::Layout,
+    layout: std::alloc::Layout
 }
 
 impl ResourceData {
@@ -35,16 +33,22 @@ impl Drop for ResourceData {
 }
 
 #[derive(Default)]
-pub struct ResourceEntities(HashMap<ComponentId, ResourceData>);
+pub struct ResourceEntities {
+    entities : HashMap<ComponentId, ResourceData>,
+    changed_ticks : SparseArray<UnsafeCell<Tick>, ComponentId>,
+    added_ticks : SparseArray<UnsafeCell<Tick>, ComponentId>
+}
 
 impl ResourceEntities {
+
+    #[inline]
     pub fn get<R: Resource>(&self, component_id: ComponentId) -> Option<&R> {
-        self.0
+        self.entities
             .get(&component_id)
             .map(|e| unsafe { &*e.data.cast::<R>() })
     }
 
-    pub fn insert<R: Resource>(&mut self, component_id: ComponentId, value: R) {
+    pub fn insert<R: Resource>(&mut self, component_id: ComponentId, value: R, tick : Tick) {
         unsafe fn drop_resource<R>(ptr: *mut u8) {
             unsafe {
                 ptr.cast::<R>().drop_in_place();
@@ -58,9 +62,10 @@ impl ResourceEntities {
             ptr.cast::<R>().write(value);
         }
 
-        self.0.remove(&component_id);
+        self.added_ticks.insert(component_id, UnsafeCell::new(tick));
+        self.changed_ticks.insert(component_id, UnsafeCell::new(tick));
 
-        self.0.insert(
+        self.entities.insert(
             component_id,
             ResourceData {
                 data: ptr,
@@ -70,15 +75,55 @@ impl ResourceEntities {
         );
     }
 
-    pub fn get_mut<R: Resource>(&mut self, component_id: ComponentId) -> Option<&mut R> {
-        self.0
+    #[inline]
+    pub fn get_mut<R : Resource>(&mut self, component_id: ComponentId) -> Option<&mut R> {
+        //Safety: We expect the user to not retrive the same resource twice at the time
+        unsafe { 
+            self.get_mut_inner(component_id)
+        }
+    }
+
+    #[inline]
+    unsafe fn get_mut_inner<R: Resource>(&mut self, component_id: ComponentId) -> Option<&mut R> {
+        self.entities
             .get(&component_id)
             .map(|e| unsafe { &mut *e.data.cast::<R>() })
     }
 
+    #[inline]
+    pub fn get_mut_with_ticks<R : Resource>(&mut self, component_id: ComponentId) -> Option<(&mut R, &mut Tick, &mut Tick)> {
+        //Safety: We expect the user to not retrive the same resource twice at the time
+        unsafe {
+            self.get_mut_with_ticks_inner(component_id)
+        }
+    }
+
+    #[inline]
+    unsafe fn get_mut_with_ticks_inner<R : Resource>(&mut self, component_id: ComponentId) -> Option<(&mut R, &mut Tick, &mut Tick)> {
+        if let (Some(res), Some(added), Some(changed)) = (
+            self.entities
+                .get(&component_id)
+                .map(|e| unsafe { &mut *e.data.cast::<R>() }),
+            self.added_ticks
+                .get(component_id)
+                .map(|t|unsafe { &mut *t.get() }),
+            self.changed_ticks
+                .get(component_id)
+                .map(|t| unsafe { &mut *t.get() })
+        ) {
+            Some((res, added, changed))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn remove<R: Resource>(&mut self, component_id: ComponentId) -> Option<R> {
         use std::alloc::dealloc;
-        let data = self.0.remove(&component_id)?;
+        let data = self.entities.remove(&component_id)?;
+        self.added_ticks.remove(component_id);
+        self.changed_ticks.remove(component_id);
+
         let value = unsafe { data.data.cast::<R>().read() };
         unsafe {
             dealloc(data.data, data.layout);
@@ -87,13 +132,15 @@ impl ResourceEntities {
         Some(value)
     }
 
+    #[inline]
     pub fn contains<R: Resource>(&self, component_id: ComponentId) -> bool {
-        self.0.contains_key(&component_id)
+        self.entities.contains_key(&component_id)
     }
 
+    #[inline]
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = ElementRef<'a>> {
-        self.0.iter().map(|(component_id, resource_data)| {
-            ElementRef::from(*component_id, resource_data.as_blob_ref())
+        self.entities.iter().map(|(component_id, resource_data)| {
+            ElementRef::from(component_id.clone(), resource_data.as_blob_ref())
         })
     }
 }

@@ -1,9 +1,25 @@
+mod splash_screen;
+
 use std::f32;
 
-use engine::{asset::AssetServer, ecs::systems::commands::Commands, math::{transform::Transform, vec::{Vec2, vec2}}, render::{color::Color, sprite::{Sprite, SpriteImageMode}}};
+use engine::{asset::{AssetServer, handle::Handle}, ecs::systems::commands::Commands, math::{transform::Transform, vec::{Vec2, vec2}}, render::{color::Color, sprite::{Sprite, SpriteImageMode}}, scene::{dynamic::DynamicScene, scene::Scene}};
+use engine_macros::Resource;
 
 use crate::{client::queue::Queue, items::{Item, food::Food}, machines::{functions::MachineFunction, machine::Machine, machine_type::MachineType, state::MachineState}, utils::grid::{self, Grid, GridParams, SpecialKeys}};
 
+
+pub enum Phase {
+    Idle,
+    In,
+    Out
+}
+
+#[derive(Resource)]
+pub struct SceneTransition {
+    phase : Phase,
+    timer : f32,
+    target : Option<Handle<DynamicScene>>
+}
 
 pub fn spawn_cafe_scene(
     mut commands : Commands,
@@ -105,8 +121,4 @@ pub fn spawn_cafe_scene(
             },
         )
     );
-}
-
-pub fn spawn_cutscene(mut commands : Commands) {
-    
 }

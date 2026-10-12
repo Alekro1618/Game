@@ -203,6 +203,10 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
+
+            fn get_type_id(&self) -> Option<::std::any::TypeId> {
+                Some(::std::any::TypeId::of::<Self>())
+            }
         }
     };
 
