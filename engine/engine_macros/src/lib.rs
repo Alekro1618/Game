@@ -164,7 +164,6 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
     let engine_path  = engine_path();
-    let name_str = name.to_string();
 
     let mut generics = input.generics.clone();
     for param in generics.params.iter_mut() {
@@ -197,7 +196,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
             }
 
             fn name(&self) -> String {
-                #name_str.to_string()
+                String::from(::std::any::type_name::<#name>())
             }
 
             fn as_any(&self) -> &dyn ::std::any::Any {
@@ -206,6 +205,12 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 
             fn get_type_id(&self) -> Option<::std::any::TypeId> {
                 Some(::std::any::TypeId::of::<Self>())
+            }
+        }
+
+        impl #impl_generics #engine_path::ecs::reflect::FromReflect for #name #ty_generics #where_clause {
+            fn from_reflect(reflect: &dyn #engine_path::ecs::reflect::Reflect) -> Option<Self> {
+                reflect.downcast_ref().cloned()
             }
         }
     };
@@ -237,6 +242,7 @@ pub fn reflect(attr: TokenStream, item: TokenStream) -> TokenStream {
         impl #impl_generics #engine_path::ecs::type_register::GetTypeRegistration for #name #ty_generics #where_clause {
             fn get_type_registration() -> #engine_path::ecs::type_register::TypeRegistration {
                 let mut type_register = #engine_path::ecs::type_register::TypeRegistration::of::<Self>();
+                type_register.insert::<#engine_path::ecs::type_register::ReflectFromReflect>(#engine_path::ecs::type_register::FromType::<Self>::from_type());
                 #(#inserts)*
                 type_register
             }

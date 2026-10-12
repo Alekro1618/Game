@@ -22,6 +22,4 @@ fn splash_screen(mut commands : Commands) {
                 Text::new("Loading...")
             )).and()
         );
-
-    commands.despawn(entity);
 }

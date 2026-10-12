@@ -12,10 +12,7 @@ use crate::{
         reflect::Reflect,
         type_register::TypeRegistry,
     }, scene::{
-        deserialize::ReflectDeserializer,
-        dynamic::{DynamicEntity, DynamicScene},
-        registration::TypeRegistrationDeserializer,
-        serialize::TypedReflectSerializer,
+        deserialize::{ReflectDeserializer, TypedReflectDeserializer}, dynamic::{DynamicEntity, DynamicScene}, registration::TypeRegistrationDeserializer, serialize::TypedReflectSerializer,
     },
 };
 
@@ -149,12 +146,14 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
 }
 
 #[derive(Deserialize)]
+#[serde(field_identifier, rename_all = "lowercase")]
 enum SceneField {
     Resources,
     Entities,
 }
 
 #[derive(Deserialize)]
+#[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
     Components,
 }
@@ -409,7 +408,7 @@ pub struct SceneMapDeserializer<'a, 'c> {
     pub text: &'a mut LoadContext<'c>,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a, '_> {
+impl<'a , 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a, '_> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -451,20 +450,22 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a, '_> {
     where
         A: MapAccess<'de>,
     {
-        let entries = Vec::new();
-        while let Some(_registration) =
+        let mut entries = Vec::new();
+        while let Some(registration) =
             map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
         {
+            let typed_reflect_deserializer = TypedReflectDeserializer::new(
+                    registration,
+                    self.registry,
+            );
 
-            // let value = map.next_value_seed(
-            //     TypedReflectDeserializer::new(
-            //     registration,
-            //     self.registry,
-            // ))?;
+            let value: Box<dyn Reflect> = map.next_value_seed(
+                typed_reflect_deserializer
+            )?;
 
-            // let value = value.reflect_clone().unwrap();
+            let value = value.reflect_clone().unwrap();
 
-            // entries.push(value); TODO
+            entries.push(value);
         }
 
         Ok(entries)

@@ -144,10 +144,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 entity,
                 components: Vec::new(),
             };
-            println!("id: {}", entity);
-
             let location = self.world.entities().get_spawned(entity).unwrap();
-            println!("location: {:#?}", location);
 
             let table = self
                 .world
@@ -232,10 +229,10 @@ mod test {
 
     use downcast_rs::Downcast;
     use engine_macros::{Component, Reflect, Resource, reflect};
-use serde::Serialize;
+use serde::{Deserialize, Serialize, de::DeserializeSeed};
 
     use crate::{
-        ecs::{
+        asset::{AssetServer, loader::LoadContext}, ecs::{
             components::{Component, Mutable, StorageType},
             reflect::Reflect,
             type_register::{
@@ -243,23 +240,22 @@ use serde::Serialize;
                 TypeRegistration, TypeRegistry,
             },
             worlds::World,
-        },
-        scene::dynamic::DynamicScene,
+        }, scene::{dynamic::DynamicScene, serde::SceneDeserializer},
     };
 
-    #[derive(Serialize, Clone, Copy, Reflect, Component)]
-    #[reflect(Serialize, Component)]
+    #[derive(Serialize, Deserialize, Clone, Copy, Reflect, Component)]
+    #[reflect(Serialize, Deserialize, Component)]
     pub struct A;
 
-    #[derive(Serialize, Clone, Copy, Reflect, Component)]
-    #[reflect(Serialize, Component)]
+    #[derive(Serialize, Deserialize, Clone, Copy, Reflect, Component)]
+    #[reflect(Serialize, Deserialize, Component)]
     pub struct B {
         number: u32,
         check: bool,
     }
 
-    #[derive(Serialize, Clone, Reflect, Resource)]
-    #[reflect(Serialize, Resource)]
+    #[derive(Serialize, Deserialize, Clone, Reflect, Resource)]
+    #[reflect(Serialize, Deserialize, Resource)]
     pub struct C {
         list : Vec<u32>
     }
@@ -270,12 +266,13 @@ use serde::Serialize;
         let mut world = World::new();
 
         world.spawn((A,));
-        world.spawn((
-            A,
-            B {
+        let b = B {
                 number: 67,
                 check: true,
-            },
+            };
+        world.spawn((
+            A,
+            b.clone()
         ));
 
         world.insert_resource(C {
@@ -289,6 +286,51 @@ use serde::Serialize;
 
         let dynamic_scene = DynamicScene::from_world(&world, &type_registry);
         let serialized = dynamic_scene.serialize(&type_registry).unwrap();
+
         println!("{}", serialized);
+
+        let asset_server = AssetServer::new("path");
+        let mut load_context = LoadContext::new(&asset_server, "asset_path");
+        
+
+        let mut deserializer = ron::de::Deserializer::from_bytes(serialized.as_bytes())
+                .unwrap();
+
+        let scene_deserializer = SceneDeserializer {
+            type_registry: &type_registry,
+            text: &mut load_context
+        };
+
+        let deserialization_result = scene_deserializer
+            .deserialize(&mut deserializer)
+            .map_err(|e| deserializer.span_error(e));
+
+        assert!(deserialization_result.is_ok());
+
+        let deserialized_scene = deserialization_result.unwrap();
+
+        let mut world = World::new();
+
+        assert!(deserialized_scene.write_to_world_with(&mut world, &type_registry).is_ok());
+
+        if let Some(c) = world.get_resource::<C>()  {
+            assert_eq!(c.list, vec![1, 2, 3]);
+        } else {
+            panic!("There is no resource \"C\"");
+        }
+
+        let mut query = world.query::<&B>();
+        let mut atleast_one = 0;
+        for b_check in query.iter(&mut world) {
+            atleast_one += 1;
+            assert_eq!(b_check.check, b.check);
+            assert_eq!(b_check.number, b.number);
+        }
+
+        if atleast_one == 0 {
+            panic!("There is no entity with component \"B\"");
+        } else if atleast_one > 1 {
+            panic!("There is more than 2 entities with component \"B\"");
+        }
     }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct EntityId {
     id: u32,
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing, default)]
     gnr: u32,
 }
 

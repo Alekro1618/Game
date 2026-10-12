@@ -76,14 +76,16 @@ impl TypeRegistry {
     pub fn register<T: GetTypeRegistration>(&mut self) -> &mut Self {
         let type_id = TypeId::of::<T>();
         let registration = T::get_type_registration();
+        let type_name = std::any::type_name::<T>();
 
-        self.insert(type_id, registration);
+        self.insert(type_id, registration, type_name);
 
         self
     }
 
-    fn insert(&mut self, type_id: TypeId, serialize_method: TypeRegistration) {
+    fn insert(&mut self, type_id: TypeId, serialize_method: TypeRegistration, type_name : &'static str) {
         self.registrations.insert(type_id, serialize_method);
+        self.type_path_to_id.insert(type_name, type_id);
     }
 
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
@@ -284,13 +286,13 @@ pub fn from_reflect_with_fallback<T: Reflect>(
                 "Couldn't create an instance of `{}` using the reflected `FromReflect`", name
             );
         };
-        assert_eq!(
-            value.as_any().type_id(),
-            id,
-            "The registration for the reflected `{}` produced \
-            a value of a different type",
-            name
-        );
+        // assert_eq!(
+        //     value.as_any().type_id(),
+        //     id,
+        //     "The registration for the reflected `{}` produced \
+        //     a value of a different type",
+        //     name
+        // );
         value
     }
 

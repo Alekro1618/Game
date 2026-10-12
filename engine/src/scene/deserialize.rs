@@ -27,12 +27,12 @@ impl<'a> TypedReflectDeserializer<'a> {
     }
 }
 
-impl<'a> DeserializeSeed<'a> for TypedReflectDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_> {
     type Value = Box<dyn Reflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'a>,
+        D: serde::Deserializer<'de>,
     {
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
             let value = deserialize_reflect.deserialize(deserializer)?;
@@ -76,23 +76,22 @@ impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_> {
             where
                 A: MapAccess<'de>,
             {
-                let _registration = map
+                let registration = map
                     .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
                     .ok_or_else(|| serde::de::Error::invalid_length(0, &"a single entry"))?;
 
-                // let value = map.next_value_seed(TypedReflectDeserializer::new(
-                //     registration,
-                //     self.registry,
-                // ))?; TODO
+                let value = map.next_value_seed(TypedReflectDeserializer::new(
+                    registration,
+                    self.registry,
+                ))?;
 
                 if map.next_key::<IgnoredAny>()?.is_some() {
                     return Err(serde::de::Error::invalid_length(2, &"a single entry"));
                 }
 
-                // let value= value.reflect_clone().unwrap();
+                let value= value.reflect_clone().unwrap();
 
-                // Ok(value)
-                todo!("")
+                Ok(value)
             }
 
             fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
