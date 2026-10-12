@@ -140,7 +140,7 @@ impl App {
         for message in messages.iter() {
             match message {
                 ExitGame::Force => return Some(AppExit::Success),
-                ExitGame::Error(error) => todo!(),
+                ExitGame::Error(_error) => todo!(),
             }
         }
 

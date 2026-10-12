@@ -1,7 +1,7 @@
 use crate::{
     camera::Camera, ecs::{
         change_detection::params::Mut, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Changed, With, Without}, systems::{commands::Commands, query::{Query, Single}}, worlds::World,
-    }, input::mouse::MousePos, math::rect::Rect, ui::{
+    }, input::mouse::MousePos, ui::{
         layout::{Available, UiLayout}, render::interact::{Hovering, setup_hovering}, tree::NodeEdge, ui_camera::UiCamera, ui_node::Node,
     }, 
 };
@@ -17,7 +17,7 @@ pub fn update_hovering_state(
 ) {
     let (hovering, not_hovering) = tree.check_hovering(mouse_pos.pos);
     
-    for (entity) in hovering {
+    for entity in hovering {
         if let Ok(mut hovering) = node_query.get(entity) {
             if !hovering.0 {
                 hovering.0 = true;
@@ -25,7 +25,7 @@ pub fn update_hovering_state(
         }
     }
 
-    for (entity) in not_hovering {
+    for entity in not_hovering {
         if let Ok(mut hovering) = node_query.get(entity) {
             if hovering.0 {
                 hovering.0 = false;

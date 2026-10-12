@@ -1,10 +1,9 @@
-use engine_macros::{Component, Resource};
-use taffy::{Layout, NodeId, TaffyTree};
+use taffy::{Layout, NodeId};
 
 use crate::{
-    camera::{Camera, MainCamera}, ecs::{
-        components::{Component, Mutable}, entities::id::EntityId, query::filter::With, resource::Resource, systems::query::{Query, Single}, worlds::World,
-    }, image::TempQuadImageStorage, math::{rect::Rect, vec::{Vec2, vec2}}, render::color::Color, ui::{ layout::UiLayout, ui_camera::UiCamera, ui_node::{BackgroundColor, Node}, widget::{ImageNode, Text, TextColor, TextFont, TextSize},
+    camera::Camera, ecs::{
+        entities::id::EntityId, query::filter::With, systems::query::Single, worlds::World,
+    }, image::TempQuadImageStorage, math::vec::{Vec2, vec2}, render::color::Color, ui::{ layout::UiLayout, ui_camera::UiCamera, ui_node::BackgroundColor, widget::{ImageNode, Text, TextColor, TextFont, TextSize},
     }
 };
 

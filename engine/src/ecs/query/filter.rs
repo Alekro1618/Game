@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, marker::PhantomData, ops::Deref};
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 use crate::ecs::{
     change_detection::tick::Tick, components::{Component, id::ComponentId}, entities::id::EntityId, query::query_world::WorldQuery,
@@ -315,7 +315,7 @@ impl<T: Component> QueryFilter for Changed<T> {
     fn filter_fetch(
         _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
-        entity: EntityId,
+        _entity: EntityId,
         table_row: u32,
     ) -> bool {
         fetch.ptr.map(|slice| {

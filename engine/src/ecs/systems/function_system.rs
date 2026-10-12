@@ -1,7 +1,7 @@
 use std::{any::type_name, marker::PhantomData};
 
 use crate::ecs::{
-    change_detection::params::{ComponentTicksMut, Mut}, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
+    change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
         commands::{Commands, command::CommandQueue}, query::{Query, Single}, system::{System, SystemInput},
     }, worlds::World,
 };

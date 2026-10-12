@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     app::main_schedule::ScheduleLabel, ecs::{
-        components::{Component, Mutable, StorageType}, resource::Resource, schedule::{self, config::{IntoSchedule, ScheduleConfig}, node::{SystemGraph, Systems}, schedule_system::ScheduleSystem}, worlds::World,
+        components::{Component, Mutable, StorageType}, resource::Resource, schedule::{config::IntoSchedule, node::{SystemGraph, Systems}, schedule_system::ScheduleSystem}, worlds::World,
     },
 };
 

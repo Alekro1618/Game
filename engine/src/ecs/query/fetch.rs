@@ -312,7 +312,7 @@ impl<A: QueryData, B: QueryData> QueryData for (A, B) {
     type Item<'w, 's> = (A::Item<'w, 's>, B::Item<'w, 's>);
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
-        item: Self::Item<'wlong, 's>,
+        _item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         todo!()
     }
@@ -386,7 +386,7 @@ impl<A: QueryData, B: QueryData, C: QueryData> QueryData for (A, B, C) {
     type Item<'w, 's> = (A::Item<'w, 's>, B::Item<'w, 's>, C::Item<'w, 's>);
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
-        item: Self::Item<'wlong, 's>,
+        _item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         todo!()
     }
@@ -472,7 +472,7 @@ impl<A: QueryData, B: QueryData, C: QueryData, D: QueryData> QueryData for (A, B
     );
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
-        item: Self::Item<'wlong, 's>,
+        _item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
         todo!()
     }

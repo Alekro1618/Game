@@ -1,10 +1,9 @@
 use engine_macros::{Component, Event};
-use macroquad::camera;
 
 use crate::{
-    app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
-        components::{Component, Mutable, StorageType}, entities::id::EntityId, event::Event, observer::system_param::On, query::filter::{With, Without}, systems::{
-            commands::Commands, query::{Query, Single},
+    app::plugin::Plugin, ecs::{
+        entities::id::EntityId, observer::system_param::On, query::filter::With, systems::{
+            commands::Commands, query::Query,
         },
     }, math::{
         rect::Rect,

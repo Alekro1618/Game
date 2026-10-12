@@ -1,7 +1,7 @@
 use engine_macros::Component;
 
 use crate::{
-    ecs::components::{Component, Mutable, StorageType},
+    ecs::components::{Component, Mutable},
     render::color::Color,
     ui::geometry::{UiRect, Val},
 };

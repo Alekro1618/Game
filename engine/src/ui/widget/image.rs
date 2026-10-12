@@ -2,7 +2,6 @@ use engine_macros::Component;
 
 use crate::{
     asset::handle::Handle,
-    ecs::components::{Component, Mutable, StorageType},
     image::{BLANK_IMAGE_HANDLE, Image, TRANSPARENT_IMAGE_HANDLE},
     math::rect::Rect,
     render::color::Color,

@@ -8,14 +8,14 @@ use async_channel::{Receiver, Sender, unbounded};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::{main_schedule::ScheduleLabel::{self, PostUpdate}, plugin::Plugin}, asset::{
+    app::{main_schedule::ScheduleLabel::{self}, plugin::Plugin}, asset::{
         asset::{Asset, AssetIndex, Assets},
         handle::{AssetHandleProvider, Handle, StrongHandle},
         info::AssetInfos,
         loader::{AssetLoader, ErasedAssetLoader, ErasedLoadedAsset, LoadContext},
         service::loaders::AssetLoaders,
     }, ecs::{
-        change_detection::params::Mut, components::{Component, Mutable, StorageType}, resource::Resource, worlds::World,
+        components::{Component, Mutable, StorageType}, resource::Resource, worlds::World,
     }, error::error::{Error, ErrorKind},
 };
 

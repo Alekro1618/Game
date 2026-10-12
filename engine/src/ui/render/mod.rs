@@ -1,6 +1,6 @@
 use crate::{
     app::{
-        main_schedule::ScheduleLabel::{PostStartup, PostUpdate, RenderSystems, Update}, plugin::Plugin,
+        main_schedule::ScheduleLabel::RenderSystems, plugin::Plugin,
     }, ui::render::render_layout::render_layout_tree,
 };
 

@@ -268,7 +268,7 @@ pub fn from_reflect_with_fallback<T: Reflect>(
     #[inline(never)]
     fn type_erased(
         reflected: &dyn Reflect,
-        world: &mut World,
+        _world: &mut World,
         registry: &TypeRegistry,
         id: TypeId,
         name : String

@@ -41,13 +41,13 @@ impl<T : Schedulable> IntoSchedule<T, ()> for ScheduleConfig<T> {
     fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> ScheduleConfig<T> {
         match &mut self {
             ScheduleConfig::One { 
-                node, 
+                node: _, 
                 conditions 
             } => {
                 conditions.push(new_condition(condition));
             },
             ScheduleConfig::Many { 
-                children, 
+                children: _, 
                 conditions 
             } => {
                 conditions.push(new_condition(condition));

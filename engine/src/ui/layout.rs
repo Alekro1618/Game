@@ -1,14 +1,14 @@
-use std::{collections::HashMap, default, iter, ops::{Deref, DerefMut}};
+use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
 use engine_macros::Resource;
 use taffy::{Layout, NodeId, TaffyTree};
 
 use crate::{
-    ecs::{components::info::TypeIdMap, entities::id::EntityId, schedule::node}, error::error::Error, math::{
+    ecs::entities::id::EntityId, math::{
         rect::Rect,
         vec::{Vec2, vec2},
     }, ui::{
-        taffy::to_style, tree::NodeEdge, ui_node::{Display, Node},
+        taffy::to_style, tree::NodeEdge, ui_node::Node,
     },
 };
 
@@ -68,7 +68,7 @@ impl UiLayout {
     }
 
     pub fn check_hovering(&self, point : Vec2) -> (impl Iterator<Item=EntityId>, impl Iterator<Item=EntityId>) {
-        let (hovering, not) = get_hovering(&self.tree, point, self.root.unwrap(), vec2(0., 0.));
+        let (hovering, not) = get_hovering(&self.tree, point, self.root.unwrap(), vec2(0_f32, 0_f32));
         
         (
             hovering.into_iter()

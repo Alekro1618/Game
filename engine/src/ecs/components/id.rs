@@ -5,7 +5,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::{ecs::{components::info::TypeIdMap, hash::NoOpHash}, utils::SparseArrayIndex};
+use crate::ecs::{components::info::TypeIdMap, hash::NoOpHash};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ComponentId {

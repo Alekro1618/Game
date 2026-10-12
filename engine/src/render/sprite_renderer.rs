@@ -72,7 +72,7 @@ fn draw_with_image(
     );
 }
 
-fn draw_with_custom_size(transform: &Transform, sprite: &Sprite, anchor : &Anchor) {
+fn draw_with_custom_size(transform: &Transform, sprite: &Sprite, _anchor : &Anchor) {
     //TODO:macroquad
     macroquad::shapes::draw_rectangle_ex(
         transform.position.x,

@@ -5,7 +5,7 @@ use engine_macros::Asset;
 use serde::Serialize;
 
 use crate::{
-    asset::asset::Asset, ecs::{
+    ecs::{
         entities::id::EntityId, reflect::Reflect, type_register::{AppTypeRegistry, ReflectComponent, ReflectResource, TypeRegistry}, worlds::World,
     }, error::error::{Error, ErrorKind}, scene::{scene::Scene, serde::SceneSerializer},
 };
@@ -78,7 +78,7 @@ impl DynamicScene {
                         Error::new(ErrorKind::ECS, format!("Unregistered component {}", component.name()))
                     })?;
 
-                let component_id = reflect_component.register_component(world);
+                let _component_id = reflect_component.register_component(world);
 
                 reflect_component.insert(
                     world, 
@@ -102,7 +102,7 @@ impl DynamicScene {
                 Error::new(ErrorKind::ECS, format!("Unregistered component {}", resource.name()))
             })?;
 
-            let resource_id = reflect_resource.register_component(world);
+            let _resource_id = reflect_resource.register_component(world);
 
             reflect_resource.insert(
                 world,

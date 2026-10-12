@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{asset::loader::AssetLoader, ecs::{type_register::{AppTypeRegistry, TypeRegistry}, worlds::{FromWorld, World}}, error::error::{Error, ErrorKind}, scene::{dynamic::DynamicScene, scene::Scene, serde::SceneDeserializer}, ui::ui_node::OverflowClipBox::PaddingBox};
+use crate::{asset::loader::AssetLoader, ecs::{type_register::{AppTypeRegistry, TypeRegistry}, worlds::{FromWorld, World}}, error::error::{Error, ErrorKind}, scene::{dynamic::DynamicScene, serde::SceneDeserializer}};
 use ron::de::SpannedError;
 use serde::de::DeserializeSeed;
 
