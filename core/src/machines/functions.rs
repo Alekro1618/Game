@@ -1,10 +1,11 @@
 use std::{collections::HashMap, error::Error, fmt::Display};
 
 use engine::{ecs::entities::id::EntityId};
-use engine_macros::{Component, Event};
+use engine_macros::{Component, Event, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 use crate::{items::Item, machines::{functions::MachinePrepearedResult::NotPrepeared, machine_type::MachineType}};
 
-#[derive(Default)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub enum MachinePrepearedResult {
     Prepeared(Option<Item>),
     #[default]
@@ -14,7 +15,8 @@ pub enum MachinePrepearedResult {
 ///Component for `Machine` that describes what machine takes and what it may output. Output is wrapped in option to configure 2 results
 /// - If items match with input then it will set last input to [`Option<Item>`]
 /// - When we call [`get_ready_output()`] it will take the last input, match it and return  [`Result<Option<Item>>`]). Returns error if the item wasn't prepeared or there is no match, which is specified by [`MachineError`]
-#[derive(Component, Default)]
+#[derive(Component, Default, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct MachineFunction
 {
     pub map : HashMap<Option<Item>, Option<Item>>,

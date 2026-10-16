@@ -7,13 +7,8 @@ use std::{
 
 use crate::{
     asset::{
-        LoadState,
-        asset::{Asset, AssetIndex},
-        handle::{AssetHandleProvider, Handle, StrongHandle},
-        loader::ErasedLoadedAsset,
-    },
-    ecs::{components::info::TypeIdMap, worlds::World},
-    error::error::{Error, ErrorKind},
+        LoadState, asset::{Asset, AssetIndex}, handle::{AssetHandleProvider, ErasedHandle, Handle, StrongHandle}, loader::ErasedLoadedAsset,
+    }, ecs::{components::info::TypeIdMap, worlds::World}, error::error::{Error, ErrorKind},
 };
 
 
@@ -101,6 +96,25 @@ impl AssetInfos {
         }        
     }
 
+    pub(crate) fn get_or_create_path_handle_erased(
+        &mut self,
+        path: &'static str,
+        type_id : TypeId,
+        lazy : bool,
+    ) -> (ErasedHandle, bool) {
+        let result = self.get_or_create_path_handle_internal(path, Some(type_id), lazy);
+
+        let (handle, should_load) = result.unwrap();
+
+        let handle: ErasedHandle = handle.into();
+
+        if lazy {
+            (handle.lazy(), false)
+        } else {
+            (handle, should_load)
+        }        
+    }
+
     pub(crate) fn get_path_handle<A: Asset>(
         &mut self,
         path: &'static str,
@@ -148,7 +162,7 @@ impl AssetInfos {
                 let should_load = !lazy;
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
-                    self.handle_providers.get_mut(&type_id).unwrap(),
+                    self.handle_providers.get_mut(&type_id).expect(&format!("Asset wasn't initialised for asset {}", path)),
                     type_id,
                     path,
                     should_load,

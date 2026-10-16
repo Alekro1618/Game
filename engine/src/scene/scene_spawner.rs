@@ -2,7 +2,7 @@ use std::{collections::{HashMap, HashSet}, sync::atomic::{AtomicU32, Ordering}};
 
 use engine_macros::{Component, Event, Resource};
 
-use crate::{asset::{asset::{AssetIndex, Assets}, handle::Handle}, ecs::{change_detection::params::Mut, entities::id::EntityId, hierarchy::ChildOf, query::filter::Changed, systems::{commands::Commands, query::Query}, worlds::World}, error::error::Error, scene::{components::DynamicSceneRoot, dynamic::DynamicScene}};
+use crate::{asset::{asset::{AssetIndex, Assets}, handle::Handle}, ecs::{change_detection::params::Mut, entities::id::EntityId, hierarchy::ChildOf, query::filter::{Added, Changed}, systems::{commands::Commands, query::Query}, worlds::World}, error::error::Error, scene::{components::DynamicSceneRoot, dynamic::DynamicScene}};
 
 static ATOMIC : AtomicU32 = AtomicU32::new(0);
 
@@ -188,19 +188,14 @@ pub struct SceneInstance(pub(crate) InstanceId);
 pub fn scene_spawner(
     mut commands: Commands,
     dynamic_scene_to_spawn: Query<
-        (EntityId, &DynamicSceneRoot, Option<&mut SceneInstance>),
-        Changed<DynamicSceneRoot>
+        (EntityId, &DynamicSceneRoot),
+        Added<DynamicSceneRoot>
     >,
     mut scene_spawner: Mut<SceneSpawner>,
 ) {
-    for (entity, dynamic_scene, instance) in dynamic_scene_to_spawn {
+    for (entity, dynamic_scene) in dynamic_scene_to_spawn {
         let new_instance = scene_spawner.spawn_dynamic_as_child(dynamic_scene.0.clone(), entity);
-        if let Some(mut old_instance) = instance {
-            scene_spawner.despawn_instance(old_instance.0);
-            *old_instance = SceneInstance(new_instance);
-        } else {
-            commands.add(entity, SceneInstance(new_instance));
-        }
+        commands.add(entity, SceneInstance(new_instance));
     }
 }
 
@@ -212,6 +207,7 @@ pub fn scene_spawner_system(world: &mut World) {
                 .map(|parent| world.get_entity(parent).is_ok())
                 .unwrap_or(true) // If we don't have a parent, then consider the parent alive.
         };
+        
         scene_spawner
             .dynamic_scenes_to_spawn
             .retain(|(_, _, parent)| is_parent_alive(parent));

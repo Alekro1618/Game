@@ -1,10 +1,11 @@
 use std::{
-    any::TypeId,
-    marker::PhantomData,
-    sync::Arc,
+    any::TypeId, collections::{HashMap, HashSet, VecDeque}, marker::PhantomData, sync::Arc,
 };
 
-use crate::asset::{AssetPath, asset::{Asset, AssetIndex, AssetIndexAllocator}};
+use engine_macros::{Reflect, reflect};
+use serde::{Deserialize, Serialize};
+
+use crate::{asset::{AssetPath, asset::{Asset, AssetIndex, AssetIndexAllocator}, loader::LoadContext}, ecs::{reflect::{FromReflect, Reflect}, type_register::{FromType, GetTypeRegistration, ReflectFromReflect, ReflectHandle, TypeRegistration}}, utils::{SparseArray, SparseArrayIndex}};
 
 #[derive(Clone, Debug)]
 pub struct AssetHandleProvider {
@@ -58,7 +59,7 @@ impl StrongHandle {
 
 impl<A: Asset> Into<Handle<A>> for Arc<StrongHandle> {
     fn into(self) -> Handle<A> {
-        Handle {
+        Handle::Strong {
             strong_handle: self,
             _phantom: PhantomData,
             lazy: false
@@ -66,29 +67,203 @@ impl<A: Asset> Into<Handle<A>> for Arc<StrongHandle> {
     }
 }
 
-pub struct Handle<A: Asset> {
+
+pub struct ErasedHandle {
     strong_handle: Arc<StrongHandle>,
     lazy : bool,
-    _phantom: PhantomData<A>,
+}
+
+impl Into<StrongHandle> for ErasedHandle {
+    fn into(self) -> StrongHandle {
+        StrongHandle::new(self.index(), self.type_id(), self.path())
+    }
+}
+
+impl Into<ErasedHandle> for Arc<StrongHandle> {
+    fn into(self) -> ErasedHandle {
+        ErasedHandle {
+            strong_handle: self,
+            lazy: false
+        }
+    }
+}
+
+
+impl ErasedHandle {
+    pub fn new(index : AssetIndex, path : AssetPath, type_id : TypeId) -> Self {
+        Self {
+            strong_handle: Arc::new(StrongHandle {
+                 index, 
+                 type_id, 
+                 path }
+            ),
+            lazy : false
+        }
+    }
+
+    pub fn lazy(mut self) -> Self {
+        self.lazy = true;
+        self
+    }
+
+    pub fn type_id(&self) -> TypeId {
+        self.strong_handle.type_id
+    }
+
+    pub fn index(&self) -> AssetIndex {
+        self.strong_handle.index
+    }
+
+    pub fn path(&self) -> AssetPath {
+        self.strong_handle.path
+    }
+
+    pub fn typed<A : Asset>(self) -> Handle<A> {
+        Handle::Strong { strong_handle: self.strong_handle, lazy: self.lazy, _phantom: PhantomData }
+    }
+}
+
+impl Clone for ErasedHandle {
+    fn clone(&self) -> Self {
+        Self::new(self.index().clone(),  self.path().clone() ,self.type_id().clone())
+    }
+}
+
+pub enum Handle<A: Asset> {
+    Strong {
+        strong_handle: Arc<StrongHandle>,
+        lazy : bool,
+        _phantom: PhantomData<A>,
+    },
+    Weak {
+        path : AssetPath,
+        lazy: bool,
+    }
+}
+
+pub trait HasHandle {
+    //We expect that after deserialization all handles are `Handle::Weak` and so needs to be replaced with `Handle::Strong`
+    fn replace_handles(&mut self, context : &mut LoadContext);
+}
+
+impl<A: Asset> HasHandle for Handle<A> {
+    fn replace_handles(&mut self, context : &mut LoadContext) {
+        if matches!(&self, Weak) {
+            let _ = core::mem::replace(self, context.asset_server.load(self.path()));
+        }
+    }
+}
+
+impl<T: HasHandle> HasHandle for Vec<T> {
+    fn replace_handles(&mut self, context : &mut LoadContext) {
+        self
+            .iter_mut()
+            .for_each(|handle| handle.replace_handles(context));
+    }
+}
+
+impl<T: HasHandle> HasHandle for VecDeque<T> {
+    fn replace_handles(&mut self, context : &mut LoadContext) {
+        self
+            .iter_mut()
+            .for_each(|handle| handle.replace_handles(context));
+    }
+}
+
+impl<K, T: HasHandle> HasHandle for HashMap<K, T> {
+    fn replace_handles(&mut self, context : &mut LoadContext) {
+        self
+            .iter_mut()
+            .for_each(|(_, handle)| handle.replace_handles(context));
+    }
+}
+
+impl<I: SparseArrayIndex + From<usize>, T: HasHandle> HasHandle for SparseArray<T, I> {
+    fn replace_handles(&mut self, context : &mut LoadContext) {
+        self
+            .iter_mut()
+            .for_each(|(_, handle)| handle.replace_handles(context));
+    }
+}
+
+impl<A: Asset> Reflect for Handle<A> {
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn into_reflect(self) -> Box<dyn Reflect> {
+        Box::new(self)
+    }
+
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, crate::error::error::Error> {
+        Ok(Box::new(Clone::clone(self)))
+    }
+
+    fn name(&self) -> String {
+        String::from(::std::any::type_name::<Handle<A>>())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn get_type_id(&self) -> Option<TypeId> {
+        Some(::std::any::TypeId::of::<Self>())
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl<A : Asset> FromReflect for Handle<A> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        reflect.downcast_ref().cloned()
+    }
+}
+
+impl<A: Asset> Serialize for Handle<A> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        match self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                strong_handle.path.serialize(serializer)
+            },
+            Handle::Weak { path, lazy } => {
+                path.serialize(serializer)
+            },
+        }
+    }
+}
+
+
+impl<'de, A: Asset> Deserialize<'de> for Handle<A> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+        let path = AssetPath::deserialize(deserializer)?;
+        Ok(Handle::Weak { path, lazy: false })
+    }
 }
 
 impl<A: Asset> Default for Handle<A> {
     fn default() -> Self {
-        Self { 
+        Self::Strong { 
             strong_handle: Arc::new(StrongHandle {
                 index: AssetIndex { generation: 0, index: u32::MAX },
                 type_id: TypeId::of::<A>(),
                 path: AssetPath::default(),
             }),
             lazy: false,
-             _phantom: PhantomData
+            _phantom: PhantomData
         }
     }
 }
 
 impl<A: Asset> Handle<A> {
     pub(crate) fn new(index: AssetIndex, path : AssetPath) -> Self {
-        Self {
+        Self::Strong {
             strong_handle: Arc::new(StrongHandle {
                 index,
                 type_id: TypeId::of::<A>(),
@@ -100,30 +275,74 @@ impl<A: Asset> Handle<A> {
     }
 
     pub fn is_lazy(&self) -> bool {
-        self.lazy
+        match self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                *lazy
+            },
+            Handle::Weak { path, lazy } => {
+                *lazy
+            },
+        }
     }
 
     pub fn unlazify(&mut self) {
-        self.lazy = false;
+        match self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                *lazy = false;
+            },
+            Handle::Weak { path, lazy } => {
+                *lazy = false;
+            },
+        }
     }
 
     pub fn lazy(mut self) -> Self {
-        self.lazy = true;
+        match &mut self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                *lazy = true;
+            },
+            Handle::Weak { path, lazy } => {
+                *lazy = true;
+            },
+        }
         self
     }
 
     pub fn index(&self) -> AssetIndex {
-        self.strong_handle.index()
+        match self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                strong_handle.index()
+            },
+            Handle::Weak { path, lazy } => {
+                panic!("Couldn't get id for weak handle");
+            },
+        }
+        
     }
 
     pub fn path(&self) -> AssetPath {
-        self.strong_handle.path()
+        match self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                strong_handle.path()
+            },
+            Handle::Weak { path, lazy } => {
+                path.clone()
+            },
+        }
     }
 }
 
 impl<A: Asset> Clone for Handle<A> {
     fn clone(&self) -> Self {
-        Self::new(self.index().clone(), self.path().clone())
+        match self {
+            Handle::Strong { strong_handle, lazy, _phantom } => {
+                Self::new(strong_handle.index().clone(), strong_handle.path().clone())
+            },
+            Handle::Weak { path, lazy } => {
+                Self::Weak { path: path.clone(), lazy: lazy.clone() }
+            }
+        }
+        
     }
 }
 

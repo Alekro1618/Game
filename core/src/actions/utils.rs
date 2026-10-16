@@ -5,7 +5,7 @@ pub fn set_up_action_queue(mut iter : impl Iterator<Item = Box<dyn Action>>) -> 
     let mut action_queue = ActionQueue::new();
 
     if let Some(first) = iter.next() {
-        current_action.0 = Some(first);
+        current_action.action = Some(first);
     }
 
     while let Some(item) = iter.next() {

@@ -56,7 +56,7 @@ fn query_components(world: &mut World) {
 }
 
 fn get_entity(world: &mut World, entity: EntityId) {
-    let _ = world.entity(entity).get_mut::<TestData>().unwrap();
+    let _ = world.entity_mut(entity).unwrap().get_mut::<TestData>().unwrap();
 }
 
 criterion_group!(

@@ -2,7 +2,7 @@ mod splash_screen;
 
 use std::f32;
 
-use engine::{asset::{AssetServer, handle::Handle}, ecs::systems::commands::Commands, math::{transform::Transform, vec::{Vec2, vec2}}, render::{color::Color, sprite::{Sprite, SpriteImageMode}}, scene::{dynamic::DynamicScene, scene::Scene}};
+use engine::{asset::{AssetServer, handle::Handle}, camera::{Camera, SetMainCamera}, ecs::systems::commands::Commands, math::{rect::Rect, transform::Transform, vec::{Vec2, vec2}}, render::{color::Color, sprite::{Sprite, SpriteImageMode}}, scene::{dynamic::DynamicScene, scene::Scene}};
 use engine_macros::Resource;
 
 use crate::{client::queue::Queue, items::{Item, food::Food}, machines::{functions::MachineFunction, machine::Machine, machine_type::MachineType, state::MachineState}, utils::grid::{self, Grid, GridParams, SpecialKeys}};
@@ -23,8 +23,15 @@ pub struct SceneTransition {
 
 pub fn spawn_cafe_scene(
     mut commands : Commands,
-    asset_server : AssetServer,
+    asset_server : &AssetServer,
 ) {
+    commands = commands
+        .spawn_with_id(Camera::new(Rect::new(vec2(0., 0.), vec2(800., 800.))))
+        .then(|mut commands, entity| {
+            commands.trigger(SetMainCamera(entity));
+        });
+
+    
     let mut grid = Grid::new(
         20,
         20,
@@ -101,7 +108,7 @@ pub fn spawn_cafe_scene(
         )
     );
 
-    let tilemap = asset_server.load("res/images/tilemap.png");
+    let tilemap = asset_server.load("res/images/sprites/tilemap.png");
 
     commands.spawn(
         (
@@ -112,13 +119,14 @@ pub fn spawn_cafe_scene(
                 flip_y: false,
                 custom_size: Some(vec2(800., 100.)),
                 rect: None,
-                image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 0.0 },
+                image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
             },
             Transform {
                 position: vec2(0_f32 ,0_f32),
                 rotation: 0.0,
                 scale: vec2(1_f32, 1_f32),
             },
+            
         )
     );
 }

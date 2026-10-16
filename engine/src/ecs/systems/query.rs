@@ -235,3 +235,28 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
         self.item
     }
 }
+
+pub struct Maybe<'w, 's, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: Option<D::Item<'w, 's>>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Maybe<'w, 's, D, F> {
+    type Target = Option<D::Item<'w, 's>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> DerefMut for Maybe<'w, 's, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Maybe<'w, 's, D, F> {
+    pub fn into_inner(self) -> Option<D::Item<'w, 's>> {
+        self.item
+    }
+}

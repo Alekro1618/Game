@@ -1,11 +1,13 @@
 use std::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     error::error::{Error, ErrorKind}, math::vec::Vec2,
 };
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 
 pub enum Val {
     /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
@@ -443,7 +445,7 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,

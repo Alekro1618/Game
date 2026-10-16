@@ -1,21 +1,24 @@
+use engine_macros::{Component, Reflect, reflect};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ecs::components::{Component, Mutable, StorageType},
-    math::vec::Vec2,
+    app::plugin::Plugin, ecs::components::{Component, Mutable, StorageType}, math::vec::Vec2,
 };
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct TransformPlugin;
+
+impl Plugin for TransformPlugin {
+    fn build(self, app: &mut crate::app::App) {
+        app.register_type::<Transform>();
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Component, Deserialize, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct Transform {
     pub position: Vec2,
     pub rotation: f32,
     pub scale: Vec2,
-}
-
-impl Component for Transform {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
 }
 
 impl Transform {

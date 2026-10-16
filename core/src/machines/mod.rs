@@ -17,6 +17,10 @@ pub struct MachinePlugins;
 impl Plugin for MachinePlugins {
     fn build(self, app:  &mut engine::app::App) {
         app
+            .register_type::<Machine>()
+            .register_type::<MachineFunction>()
+            .register_type::<MachineState>()
+            .register_type::<MachineType>()
             .add_plugin(TimerPlugin::<FinishedMachine>::new())
             .add_systems(
                 ScheduleLabel::Startup, 

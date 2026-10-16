@@ -1,10 +1,12 @@
 use std::fmt::Display;
 
-use engine_macros::Component;
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Component, Default)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Component, Default, Serialize, Deserialize, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub enum MachineType {
     #[default]
     Unknown,

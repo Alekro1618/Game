@@ -1,7 +1,5 @@
 use std::{
-    any::{Any, TypeId},
-    panic::AssertUnwindSafe,
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    any::{Any, TypeId}, fmt::Display, panic::AssertUnwindSafe, sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use async_channel::{Receiver, Sender, unbounded};
@@ -9,11 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app::{main_schedule::ScheduleLabel::{self}, plugin::Plugin}, asset::{
-        asset::{Asset, AssetIndex, Assets},
-        handle::{AssetHandleProvider, Handle, StrongHandle},
-        info::AssetInfos,
-        loader::{AssetLoader, ErasedAssetLoader, ErasedLoadedAsset, LoadContext},
-        service::loaders::AssetLoaders,
+        asset::{Asset, AssetIndex, Assets}, handle::{AssetHandleProvider, ErasedHandle, Handle, StrongHandle}, info::AssetInfos, loader::{AssetLoader, ErasedAssetLoader, ErasedLoadedAsset, LoadContext}, service::loaders::AssetLoaders,
     }, ecs::{
         components::{Component, Mutable, StorageType}, resource::Resource, worlds::World,
     }, error::error::{Error, ErrorKind},
@@ -29,6 +23,12 @@ pub mod event;
 #[derive(Debug, Clone, Copy)]
 pub struct AssetPath {
     path : &'static str
+}
+
+impl Display for AssetPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path)
+    }
 }
 
 impl Default for AssetPath {
@@ -119,6 +119,7 @@ pub(crate) enum InternalAssetEvent {
     Loaded {
         index: AssetIndex,
         loaded_asset: ErasedLoadedAsset,
+        path: &'static str
     },
     Failed {
         index: AssetIndex,
@@ -208,6 +209,19 @@ impl AssetServer {
 
         let mut infos = self.write_infos();
         let (handle, should_load) = infos.get_or_create_path_handle::<A>(path, false);
+
+        if should_load {
+            self.spawn_load_task(handle.clone().into(), path, infos);
+        }
+
+        handle
+    }
+
+    pub fn load_erased(&self, type_id : TypeId, path: impl Into<&'static str>) -> ErasedHandle {
+        let path = path.into();
+
+        let mut infos = self.write_infos();
+        let (handle, should_load) = infos.get_or_create_path_handle_erased(path, type_id, false);
 
         if should_load {
             self.spawn_load_task(handle.clone().into(), path, infos);
@@ -309,6 +323,7 @@ impl AssetServer {
                 self.send_message(InternalAssetEvent::Loaded {
                     index: base_asset_id.clone(),
                     loaded_asset,
+                    path
                 })
                 .await;
 
@@ -361,8 +376,9 @@ pub fn handle_internal_asset_events(world : &mut World) {
                 InternalAssetEvent::Loaded {
                     index,
                     loaded_asset,
+                    path
                 } => {
-                    println!("Loaded {}", loaded_asset.asset_type_name());
+                    println!("Loaded {} {}", loaded_asset.asset_type_name(), path);
                     infos.process_asset_load(index, loaded_asset, world);
                 }
                 InternalAssetEvent::Failed { index: _, path, error } => {

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, entities::id::EntityId, schedule::config::IntoSchedule}, input::{button_input::ButtonInput, keyboard::KeyCode, mouse::MouseButton}, math::vec::Vec2};
 use engine_macros::{Component, Resource};
+use serde::{Deserialize, Serialize};
 
 use crate::cutscenes::{actor::ActorPlugin, script::{ScriptPlugin, script_state::ScriptState}, system::{update_cutscene}};
 
@@ -12,7 +13,7 @@ mod system;
 
 
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RelativePosition {
     #[default]
     Center,
@@ -21,13 +22,13 @@ pub enum RelativePosition {
     Right(Level),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransitionOption {
     Immidiate,
     Smooth,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Level {
     Top,
     #[default]

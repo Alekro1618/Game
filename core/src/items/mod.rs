@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display, process::Command};
 
 use engine::{app::plugin::Plugin, ecs::{entities::id::EntityId, message::{Message, message_reader::MessageReader}, observer::system_param::On, systems::{commands::Commands, query::Query}}};
 use engine_macros::{Component, Event, Message};
+use serde::{Deserialize, Serialize};
 
 use crate::items::{food::Food, system::{on_add_to_inventory, on_remove_from_inventory}};
 
@@ -23,7 +24,7 @@ impl Plugin for InventoryPlugin {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug, Serialize, Deserialize)]
 pub enum Item {
     Food(Food),
     Money(u32)

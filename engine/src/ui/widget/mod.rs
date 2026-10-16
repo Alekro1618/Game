@@ -1,5 +1,3 @@
-//! This module contains the basic building blocks of Bevy's UI
-
 mod button;
 mod image;
 mod label;
@@ -19,18 +17,17 @@ use crate::ecs::worlds::World;
 pub struct WidgetId(u32);
 
 pub trait Widget {
-    fn compose(&self, widget_id : WidgetId, world : &mut World);
-
+    fn compose(&self, widget_id: WidgetId, world: &mut World);
 }
 
 pub struct WidgetTree {
-    widget_id : WidgetId,
-    widget : Box<dyn Widget>,
-    inner : Vec<Box<WidgetTree>>
+    widget_id: WidgetId,
+    widget: Box<dyn Widget>,
+    inner: Vec<Box<WidgetTree>>,
 }
 
 impl WidgetTree {
-    fn compose(&self, world : &mut World) {
+    fn compose(&self, world: &mut World) {
         self.widget.compose(self.widget_id, world);
         self.inner.iter().for_each(|wt| wt.compose(world));
     }

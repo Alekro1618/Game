@@ -13,10 +13,11 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 
 impl Plugin for RenderPlugin {
     fn build(self, app: &mut App) {
-        app.add_systems(
-            ScheduleLabel::RenderSystems,
-            render,
-        );
+        app
+            .add_systems(
+                ScheduleLabel::RenderSystems,
+                render,
+            );
 
         //let mut render_app = SubApp::new();
         //app.set_extract(extract);

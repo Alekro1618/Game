@@ -26,8 +26,8 @@ pub fn add_single_action(
         panic!("Trying to add new action to entity that doesn't have `CurrentAction`");
     };
 
-    if current_action.0.is_none() {
-        current_action.0 = Some(action);
+    if current_action.action.is_none() {
+        current_action.action = Some(action);
         world.trigger_ref(&mut ActionEvent::<Start>(agent, PhantomData));
         return;
     }
@@ -58,12 +58,12 @@ pub fn on_queue_actions(
         panic!("Trying to add new action to entity that doesn't have `CurrentAction`");
     };
 
-    if current_action.0.is_none() {
+    if current_action.action.is_none() {
         let Some(first_action) = actions.next() else {
             return;
         };
 
-        current_action.0 = Some(first_action);
+        current_action.action = Some(first_action);
         world.trigger_ref(&mut ActionEvent::<Start>(agent, PhantomData));
     }
 
@@ -95,7 +95,7 @@ pub fn on_remove_action(
         panic!("Trying to add remove action from entity that doesn't have `CurrentAction`");
     };
 
-    if let Some(previous_action) = current_action.0.replace(next_action) {
+    if let Some(previous_action) = current_action.action.replace(next_action) {
         previous_action.on_remove(agent, &mut world);
     }
     
@@ -111,7 +111,7 @@ pub fn update_actions(
         .iter_inner()
         .filter_map(|(agent, current_action)| {
             current_action
-                .0
+                .action
                 .as_ref()
                 .and_then(|action| action.is_finished(agent, world).then_some(agent) )
         }
@@ -134,7 +134,7 @@ pub fn on_action_start(
     };
     
     if let Some(mut action) = current_action
-        .0
+        .action
         .take() {
             if action.on_start(agent, &mut world) {
                 world.trigger_ref(&mut ActionEvent::<Finish>(agent, PhantomData));
@@ -144,7 +144,7 @@ pub fn on_action_start(
                 = world.get_component_mut::<CurrentAction>(agent) else {
                 panic!("")
             };
-            current_action.0 = Some(action);
+            current_action.action = Some(action);
         } else {
             println!("No current action")
         }
@@ -163,7 +163,7 @@ pub fn on_action_finish(
     };
     
     if let Some(mut action) = current_action
-        .0
+        .action
         .take() {
             action.on_end(agent, &mut world);
 
@@ -172,7 +172,7 @@ pub fn on_action_finish(
                 panic!("")
             };
 
-            current_action.0 = Some(action);
+            current_action.action = Some(action);
 
             world.trigger_ref(&mut RemoveAction(agent));
         }
@@ -192,7 +192,7 @@ pub fn on_action_stop(
     };
     
     if let Some(mut action) = current_action
-        .0
+        .action
         .take() {
             action.on_stop(agent, &mut world);
 
@@ -201,7 +201,7 @@ pub fn on_action_stop(
                 panic!("")
             };
 
-            current_action.0 = Some(action);
+            current_action.action = Some(action);
 
             world.trigger_ref(&mut RemoveAction(agent));
         }

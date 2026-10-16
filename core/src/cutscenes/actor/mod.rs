@@ -1,5 +1,6 @@
 use engine::{animation::{AnimationState, manager::{AnimationManager, AnimationManagerPlayer}, player::{PlayerInstance, recording_player, texture_recording_player}, recording::{RecordPlayer, Recording}, sprite::{TextureRecordingPlayer, TextureState}}, app::{main_schedule::ScheduleLabel, plugin::Plugin}, asset::handle::Handle, camera::{Camera, MainCamera}, ecs::{name::Name, query::filter::With, worlds::World}, math::{transform::Transform, vec::Vec2}, render::{color::Color, sprite::{Anchor, Sprite}}};
-use engine_macros::{Bundle, Component};
+use engine_macros::{Bundle, Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{actions::components::{ActionQueue, CurrentAction}, cutscenes::{Level, RelativePosition, actor::{animation::{ActorAnimationManager, ActorAnimationPlayer, ActorAnimationState}, systems::{animate_actor, appear_effect, hide_effect, pose_to_transform, transition_from_one_pos_to_another}}}};
 
@@ -9,10 +10,12 @@ pub mod actions;
 mod animation;
 mod systems;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Reflect, Clone)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct Actor;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Reflect, Clone)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct Pos(RelativePosition);
 
 #[derive(Component)]

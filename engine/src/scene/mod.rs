@@ -1,4 +1,4 @@
-use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, scene::{dynamic::DynamicScene, loader::SceneLoader, scene_spawner::{SceneSpawner, scene_spawner, scene_spawner_system}}};
+use crate::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::type_register::TypeRegistryPlugin, scene::{dynamic::DynamicScene, loader::SceneLoader, scene_spawner::{SceneSpawner, scene_spawner, scene_spawner_system}}};
 
 mod deserialize;
 pub mod dynamic;
@@ -14,7 +14,8 @@ pub struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
     fn build(self, app: &mut crate::app::App) {
-        app.init_asset::<DynamicScene>()
+        app
+            .init_asset::<DynamicScene>()
             .init_asset_loader::<SceneLoader>()
             .insert_resource(SceneSpawner::default())
             .add_systems(

@@ -11,7 +11,8 @@ pub struct ResourcePlugin;
 
 impl Plugin for ResourcePlugin {
     fn build(self, app: &mut App) {
-        app.add_systems(ScheduleLabel::PreStartup, setup)
+        app
+            .add_systems(ScheduleLabel::PreStartup, setup)
             .add_systems(ScheduleLabel::Update, calculate_time);
     }
 }

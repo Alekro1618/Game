@@ -1,5 +1,3 @@
-
-
 use crate::{ecs::{type_register::TypeRegistry, worlds::World}, error::error::Error, scene::dynamic::DynamicScene};
 
 pub struct Scene {

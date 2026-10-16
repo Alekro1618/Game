@@ -1,14 +1,12 @@
-use engine::{animation::{AnimationState, sprite::TextureState}, camera::{Camera, MainCamera}, ecs::{entities::id::EntityId, query::filter::{With, Without}, systems::{commands::Commands, query::Query}}, math::{transform::Transform, vec::vec2}, render::sprite::Sprite, utils::resources::{GameSpeed, Time}};
+use engine::{animation::{AnimationState, sprite::TextureState}, camera::{Camera, MainCamera}, ecs::{entities::id::EntityId, query::filter::{With, Without}, systems::{commands::Commands, query::{Query, Single}}}, math::{transform::Transform, vec::vec2}, render::sprite::Sprite, utils::resources::{GameSpeed, Time}};
 
 use crate::cutscenes::{actor::{Actor, AppearEffect, HideEffect, Pos, TransitionPos, animation::{ActorAnimationManager, ActorAnimationPlayer}}};
 
 
 pub fn pose_to_transform(
     query: Query<(& Pos, &mut Transform), Without<TransitionPos>>,
-    camera : Query<&Camera, With<MainCamera>>
+    camera : Single<&Camera, With<MainCamera>>
 ) {
-    let camera = camera.iter().next().unwrap();
-    
     let rect = camera.rect();
     let width = rect.width();
 

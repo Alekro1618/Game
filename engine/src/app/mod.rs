@@ -9,8 +9,8 @@ use crate::{
         asset::Asset,
         loader::AssetLoader,
     }, ecs::{
-        event::Event, message::{Message, MessagePlugin, messages::Messages}, observer::distributed_storage::IntoObserver, resource::Resource, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::FromWorld,
-    }, exit::ExitGame, window::Window,
+        event::Event, message::{Message, MessagePlugin, messages::Messages}, observer::distributed_storage::IntoObserver, resource::Resource, schedule::{config::IntoSchedule, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, type_register::{GetTypeRegistration, TypeRegistryPlugin}, worlds::FromWorld,
+    }, exit::{ExitGame, ExitPlugin}, window::Window,
 };
 
 pub mod main_schedule;
@@ -101,6 +101,8 @@ impl Default for App {
         let mut app = App::empty();
         app.sub_apps.main.update_schedule = Some(ScheduleLabel::Main);
 
+        app.add_plugin(TypeRegistryPlugin)
+            .add_plugin(ExitPlugin);
         // app.add_message::<AppExit>();
         app
     }
@@ -156,6 +158,11 @@ impl App {
         self
     }
 
+    pub fn init_resource<R : Resource + FromWorld>(&mut self) -> &mut Self {
+        self.main_mut().init_resource::<R>();
+        self
+    }
+
     pub fn insert_resource<R : Resource>(&mut self, resource : R) -> &mut Self {
         self.main_mut().insert_resource(resource);
         self
@@ -206,6 +213,11 @@ impl App {
     pub fn register_player<P: Player>(&mut self) -> &mut Self {
         self.add_plugin(PlayerPlugin::<P>::new());
 
+        self
+    }
+
+    pub fn register_type<T : GetTypeRegistration>(&mut self) -> &mut Self {
+        self.main_mut().register_type::<T>();
         self
     }
     // pub fn add_message<M : Message>(&mut self) -> Self {

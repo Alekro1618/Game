@@ -1,24 +1,29 @@
 use engine::{ecs::entities::id::EntityId, utils::*};
-use engine_macros::{Component, Event};
+use engine_macros::{Component, Event, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{ items::Item, machines::{state::MachineState, machine_type::MachineType}};
 
 
 /// `Machine`
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct Machine {
     pub is_holding : bool, // If true the charachter won't be able to move until the machine finishes
     pub take_time : Option<f32>, //Time in seconds
     pub fix_time : Option<f32>,
 }
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct IsHolding;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct TakesTime(f32);
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct FixTime(f32);
 
 
@@ -66,5 +71,6 @@ impl From<MachineType> for Machine {
 }
 
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Serialize, Deserialize, Component)]
 pub struct WaitingFor(pub EntityId);

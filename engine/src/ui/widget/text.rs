@@ -1,16 +1,14 @@
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
+
 use crate::{
     ecs::components::{Component, Mutable, StorageType},
     render::color::Color,
 };
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Component, Serialize, Deserialize, Reflect, Clone, PartialEq)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct Text(pub String);
-
-impl Component for Text {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
-}
 
 impl Text {
     /// Makes a new text component.

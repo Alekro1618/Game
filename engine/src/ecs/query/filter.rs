@@ -326,3 +326,73 @@ impl<T: Component> QueryFilter for Changed<T> {
         }).unwrap()
     }
 }
+
+pub struct Added<T>(PhantomData<T>);
+
+pub struct AddedFetch<'w, T> {
+    ptr: Option<&'w [UnsafeCell<Tick>]>,
+    _marker: PhantomData<&'w T>,
+    last_run : Tick,
+    this_run : Tick
+}
+
+
+impl<T: Component> WorldQuery for Added<T> {
+    type Fetch<'w> = AddedFetch<'w, T>;
+
+    type State = ComponentId;
+
+    fn init_fetch<'w, 's>(
+        _world: &'w crate::ecs::worlds::World,
+        _state: &'s Self::State,
+        last_run: crate::ecs::change_detection::tick::Tick,
+        this_run: crate::ecs::change_detection::tick::Tick,
+    ) -> Self::Fetch<'w> {
+        AddedFetch {
+            ptr: None,
+            _marker: PhantomData,
+            last_run,
+            this_run
+        }
+    }
+
+    fn init_state(world: &mut crate::ecs::worlds::World) -> Self::State {
+        world.register_component::<T>()
+    }
+
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &'s Self::State,
+        table: &'w crate::ecs::storage::Table,
+    ) {
+        fetch.ptr = table
+            .get_column(*state)
+            .map(|column| column.get_added_ticks_slice(table.entity_count() as usize))
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(crate::ecs::components::id::ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(*state)
+    }
+}
+
+
+impl<T: Component> QueryFilter for Added<T> {
+    const IS_ARCHETYPAL: bool = true;
+
+    fn filter_fetch(
+        _state: &Self::State,
+        fetch: &mut Self::Fetch<'_>,
+        _entity: EntityId,
+        table_row: u32,
+    ) -> bool {
+        fetch.ptr.map(|slice| {
+            // SAFETY: The caller ensures `table_row` is in range.
+            let tick = unsafe { slice.get_unchecked(table_row as usize) };
+
+            (unsafe { *tick.get() }).clone().is_newer_than(fetch.last_run, fetch.this_run)
+        }).unwrap()
+    }
+}

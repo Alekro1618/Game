@@ -4,7 +4,7 @@ use crate::{
     app::{App, main_schedule::ScheduleLabel}, asset::{
         AssetServer, asset::{Asset, Assets}, event::AssetEvent, loader::AssetLoader,
     }, ecs::{
-        event::Event, message::Message, resource::Resource, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, worlds::{FromWorld, World},
+        event::Event, message::Message, resource::Resource, schedule::{config::IntoSchedule, schedule::Schedules, schedule_system::ScheduleSystem}, systems::observer_system::IntoObserverSystem, type_register::{AppTypeRegistry, GetTypeRegistration}, worlds::{FromWorld, World},
     }, window::Window,
 };
 
@@ -111,6 +111,11 @@ impl SubApp {
         self.extract.take()
     }
 
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.world.init_resource::<R>();
+        self
+    }
+
     pub fn insert_resource<R: Resource>(&mut self, resource : R) -> &mut Self {
         self.world.insert_resource(resource);
         self
@@ -168,6 +173,14 @@ impl SubApp {
         observer: impl IntoObserverSystem<E, M>,
     ) -> &mut Self {
         self.world.add_observer(observer);
+        self
+    }
+
+    pub fn register_type<T : GetTypeRegistration>(&mut self) -> &mut Self {
+        if let Some(type_register) = self.world.get_resource_mut::<AppTypeRegistry>() {
+            type_register.0.write().unwrap().register::<T>();
+        }
+        
         self
     }
 }

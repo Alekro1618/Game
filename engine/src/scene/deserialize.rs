@@ -1,4 +1,4 @@
-use std::fmt::{self, Formatter};
+use std::{any::Any, fmt::{self, Formatter}};
 
 use serde::{
     Deserialize, Deserializer,
@@ -6,28 +6,28 @@ use serde::{
 };
 
 use crate::{
-    ecs::{
-        reflect::Reflect,
-        type_register::{ReflectDeserialize, TypeRegistration, TypeRegistry},
-    },
-    scene::registration::TypeRegistrationDeserializer,
+    asset::{AssetPath, loader::LoadContext}, ecs::{
+        reflect::Reflect, type_register::{ReflectDeserialize, ReflectHandle, TypeRegistration, TypeRegistry},
+    }, scene::registration::TypeRegistrationDeserializer,
 };
 
-pub struct TypedReflectDeserializer<'a> {
+pub struct TypedReflectDeserializer<'a, 'c> {
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
+    context : &'a mut LoadContext<'c>
 }
 
-impl<'a> TypedReflectDeserializer<'a> {
-    pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
+impl<'a, 'c> TypedReflectDeserializer<'a, 'c> {
+    pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry, context : &'a mut LoadContext<'c>) -> Self {
         Self {
             registration,
             registry,
+            context
         }
     }
 }
 
-impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_> {
+impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_, '_> {
     type Value = Box<dyn Reflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -35,7 +35,12 @@ impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_> {
         D: serde::Deserializer<'de>,
     {
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
-            let value = deserialize_reflect.deserialize(deserializer)?;
+            let mut value = deserialize_reflect.deserialize(deserializer)?;
+            
+            if let Some(reflect_handle) = self.registration.data::<ReflectHandle>() {
+                reflect_handle.replace_handles(&mut value, self.context);
+            }
+
             return Ok(value);
         } else {
             panic!("Doesn't have deserializor")
@@ -43,28 +48,30 @@ impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_> {
     }
 }
 
-pub struct ReflectDeserializer<'a> {
+pub struct ReflectDeserializer<'a, 'c> {
     registry: &'a TypeRegistry,
+    context : &'a mut LoadContext<'c>
 }
 
-impl<'a> ReflectDeserializer<'a> {
-    pub fn new(registry: &'a TypeRegistry) -> Self {
-        Self { registry }
+impl<'a, 'c> ReflectDeserializer<'a, 'c> {
+    pub fn new(registry: &'a TypeRegistry, context : &'a mut LoadContext<'c>) -> Self {
+        Self { registry, context }
     }
 }
 
-impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_> {
+impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_, '_> {
     type Value = Box<dyn Reflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct UntypedReflectDeserializerVisitor<'a> {
+        struct UntypedReflectDeserializerVisitor<'a, 'c> {
             registry: &'a TypeRegistry,
+            context: &'a mut LoadContext<'c>
         }
 
-        impl<'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'_> {
+        impl<'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'_, '_> {
             type Value = Box<dyn Reflect>;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -83,7 +90,10 @@ impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_> {
                 let value = map.next_value_seed(TypedReflectDeserializer::new(
                     registration,
                     self.registry,
+                    self.context
                 ))?;
+
+                println!("{}", value.name());
 
                 if map.next_key::<IgnoredAny>()?.is_some() {
                     return Err(serde::de::Error::invalid_length(2, &"a single entry"));
@@ -291,6 +301,7 @@ impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_> {
 
         deserializer.deserialize_map(UntypedReflectDeserializerVisitor {
             registry: self.registry,
+            context: self.context
         })
     }
 }

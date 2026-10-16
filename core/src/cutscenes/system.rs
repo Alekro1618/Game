@@ -19,7 +19,7 @@ pub fn update_cutscene(
             ScriptNodeMessage::Command(command) =>  {
                 on_command(&command, &mut commands);
             },
-            ScriptNodeMessage::ActorDefinition { name, definition } => {
+            ScriptNodeMessage::ActorDefinition(definition) => {
                 commands.spawn(ActorBundle::new(definition.name, definition.start, definition.animation_manager));
             },
         }

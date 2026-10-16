@@ -1,14 +1,24 @@
-use engine_macros::Component;
+use std::any::Any;
+
+use engine_macros::{Component, Handle, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    asset::handle::Handle,
-    ecs::components::{Component, Mutable, StorageType},
-    image::{BLANK_IMAGE_HANDLE, Image},
-    math::{rect::Rect, vec::Vec2},
-    render::color::Color,
+    app::plugin::Plugin, asset::handle::{Handle, HasHandle}, ecs::components::{Component, Mutable, StorageType}, image::{BLANK_IMAGE_HANDLE, Image}, math::{rect::Rect, vec::Vec2}, render::color::Color,
 };
 
+pub struct SpritePlugin;
+
+impl Plugin for SpritePlugin {
+    fn build(self, app: &mut crate::app::App) {
+        app.register_type::<Sprite>();
+    }
+}
+
+#[derive(Clone, Component, Reflect, Serialize, Deserialize, Handle)]
+#[reflect(Component, Serialize, Deserialize, Handle)]
 pub struct Sprite {
+    #[handle]
     pub texture: Handle<Image>,
     pub color: Color,
     pub flip_x: bool,
@@ -18,7 +28,7 @@ pub struct Sprite {
     pub image_mode: SpriteImageMode,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub enum SpriteImageMode {
     #[default]
     Auto,
@@ -28,12 +38,6 @@ pub enum SpriteImageMode {
         tile_y: bool,
         stretch_value: f32,
     },
-}
-
-impl Component for Sprite {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
 }
 
 impl Sprite {

@@ -1,7 +1,9 @@
+use engine_macros::{Reflect, Resource, reflect};
 use macroquad::{
     miniquad::window::set_fullscreen,
     window::request_new_screen_size,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
@@ -9,6 +11,8 @@ use crate::{
     }, math::vec::{Vec2, vec2},
 };
 
+#[derive(Resource, Clone, Reflect, Serialize, Deserialize)]
+#[reflect(Resource, Component, Serialize, Deserialize)]
 pub struct Window {
     pub size: Vec2,
     pub fullscreen: bool,
@@ -20,14 +24,6 @@ impl Window {
         Self { size, fullscreen, is_resizable }
     }
 }
-
-impl Component for Window {
-    const STORAGE_TYPE: crate::ecs::components::StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
-}
-
-impl Resource for Window {}
 
 impl Default for Window {
     fn default() -> Self {
@@ -85,6 +81,7 @@ pub struct WindowPlugin;
 impl Plugin for WindowPlugin {
     fn build(self, app: &mut crate::app::App) {
         app
+            .register_type::<Window>()
             .add_observer(
                 apply_window_settings,
             )

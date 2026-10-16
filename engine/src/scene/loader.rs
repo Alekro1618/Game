@@ -47,7 +47,7 @@ impl AssetLoader for SceneLoader {
 
             let scene_deserializer = SceneDeserializer {
                 type_registry: &self.type_registry.read().unwrap(),
-                text: load_context,
+                context: load_context,
             };
 
             scene_deserializer

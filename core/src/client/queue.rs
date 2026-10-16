@@ -1,7 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use engine::ecs::entities::id::EntityId;
-use engine_macros::{Component, Event, Resource};
+use engine_macros::{Component, Event, Reflect, Resource, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{players::player_type::Client, utils::grid::Point};
 
@@ -12,7 +13,8 @@ pub struct MoveQueue(pub EntityId);
 #[derive(Event)]
 pub struct SpawnRandomClient;
 
-#[derive(Component)]
+#[derive(Component, Clone, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct Queue {
     order : Vec<Point>,
     map : HashMap<Client, usize>,

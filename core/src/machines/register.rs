@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use engine::ecs::entities::id::EntityId;
-use engine_macros::Resource;
+use engine_macros::{Reflect, Resource, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::machines::machine_type::MachineType;
 

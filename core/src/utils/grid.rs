@@ -3,11 +3,12 @@ use std::{collections::HashMap, fmt::{Display, Pointer}};
 use bitmap::Bitmap;
 use bitvec::vec::{self, BitVec};
 use engine::{app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{change_detection::params::Mut, systems::{ query::Query}}, error::error::{Error, ErrorKind}, math::{transform::{self, Transform}, vec::Vec2}, render::color::Color};
-use engine_macros::{Component, Resource};
+use engine_macros::{Component, Reflect, Resource, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::utils::path::traverse_path;
 
-#[derive(Clone, Copy, Eq, Hash)]
+#[derive(Clone, Copy, Eq, Hash, Serialize, Deserialize)]
 pub struct Point {
     x : usize, 
     y : usize,
@@ -74,14 +75,14 @@ impl TryInto<Point> for (isize, isize) {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum GridName {
     Players,
     Walls,
     Interactables
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SpecialKeys {
     CashRegister,
     Entrence,
@@ -89,6 +90,7 @@ pub enum SpecialKeys {
     ServicePlace
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GridParams {
     position : Vec2,
     dx : f32,
@@ -124,7 +126,8 @@ impl GridParams {
 
 
 
-#[derive(Resource)]
+#[derive(Resource, Clone, Reflect, Serialize, Deserialize)]
+#[reflect(Resource, Serialize, Deserialize)]
 pub struct Grid {
     width : usize,
     height : usize,
@@ -233,17 +236,6 @@ pub struct LockToGrid {
     pub position : Point
 }
 
-#[derive(Component)]
-pub struct LookInGrid {
-    map_name : GridName,
-    pub position : Point
-}
-
-impl LockToGrid {
-    pub fn new(map_name : GridName, point : impl Into<Point>) -> Self {
-        Self { map_name: map_name, position: point.into() }
-    }
-}
 
 #[derive(Component)]
 pub struct SmoothToGrid {
@@ -338,25 +330,21 @@ pub struct GridPlugin;
 
 impl Plugin for GridPlugin {
     fn build(self, app:  &mut engine::app::App) {
-        app.add_systems(
-            ScheduleLabel::PreUpdate, 
-            smooth_point_to_transform
-        );
-        app.add_systems(
-            ScheduleLabel::PreUpdate, 
-            point_to_transform
-        );
-        app.add_systems(
-            ScheduleLabel::FixedUpdate, 
-            update_grid
-        );
-        app.add_systems(
-            ScheduleLabel::FixedUpdate, 
-            traverse_path
-        );
-        app.add_systems(
-            ScheduleLabel::Update, 
-            draw_grid
-        );
+        app
+            .register_type::<Grid>()
+            .add_systems(
+                ScheduleLabel::PreUpdate, 
+                (
+                    smooth_point_to_transform,
+                    point_to_transform
+                )
+            )
+            .add_systems(
+                ScheduleLabel::FixedUpdate, 
+                (
+                    update_grid,
+                    traverse_path
+                )
+            );
     }
 }

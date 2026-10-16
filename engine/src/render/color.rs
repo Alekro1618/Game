@@ -1,6 +1,8 @@
 use std::ops::{Add, Mul};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Color {
     RGBA(RGBA),
 }
@@ -40,7 +42,7 @@ impl From<&[char]> for Color {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RGBA {
     pub r: f32,
     pub g: f32,

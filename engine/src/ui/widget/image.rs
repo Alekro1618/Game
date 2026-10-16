@@ -1,4 +1,5 @@
-use engine_macros::Component;
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     asset::handle::Handle,
@@ -7,7 +8,8 @@ use crate::{
     render::color::Color,
 };
 
-#[derive(Component)]
+#[derive(Component, Reflect, Serialize, Deserialize, Clone)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct ImageNode {
     pub color: Color,
     pub image: Handle<Image>,
@@ -89,7 +91,7 @@ impl ImageNode {
 }
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]

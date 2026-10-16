@@ -154,19 +154,25 @@ impl<'w> DynamicSceneBuilder<'w> {
             let row_ref = unsafe { table.get_row(location.table_row as usize).unwrap() };
 
             for element_ref in row_ref.into_iter() {
-                let type_id = self
+                let component_info = self
                     .world
                     .components()
                     .get_info(element_ref.component_id())
-                    .unwrap()
+                    .unwrap();
+
+                let type_id = component_info    
                     .type_id()
                     .unwrap();
 
-                let type_registration = self.type_registry.get(type_id).unwrap();
+                let name = component_info.name();
+
+                let type_registration = self.type_registry
+                    .get(type_id)
+                    .expect(&format!("Type {} wasn't registered as component", name));
 
                 let component = type_registration
                     .data::<ReflectComponent>()
-                    .unwrap()
+                    .expect(&format!("No `ReflectComponent` for {}", name))
                     .reflect(element_ref);
 
                 let component = component.reflect_clone().unwrap();
@@ -189,19 +195,25 @@ impl<'w> DynamicSceneBuilder<'w> {
 
     pub fn extract_resources(mut self) -> Self {
         for element_ref in self.world.resource_entities().iter() {
-            let type_id = self
+            let component_info = self
                 .world
                 .components()
                 .get_info(element_ref.component_id())
-                .unwrap()
+                .unwrap();
+
+            let type_id = component_info    
                 .type_id()
                 .unwrap();
 
-            let type_registration = self.type_registry.get(type_id).unwrap();
+            let name = component_info.name();
+
+            let type_registration = self.type_registry
+                .get(type_id)
+                .expect(&format!("Type {} wasn't registered as resource", name));
 
             let resource = type_registration
                 .data::<ReflectResource>()
-                .unwrap()
+                .expect(&format!("No `ReflectResource` for {}", name))
                 .reflect(element_ref);
 
             let resource = resource.reflect_clone().unwrap();
@@ -228,11 +240,11 @@ mod test {
     use std::any::{Any, TypeId};
 
     use downcast_rs::Downcast;
-    use engine_macros::{Component, Reflect, Resource, reflect};
+    use engine_macros::{Asset, Component, Reflect, Resource, reflect};
 use serde::{Deserialize, Serialize, de::DeserializeSeed};
 
     use crate::{
-        asset::{AssetServer, loader::LoadContext}, ecs::{
+        asset::{AssetServer, asset::Assets, handle::Handle, loader::{AssetLoader, LoadContext}}, ecs::{
             components::{Component, Mutable, StorageType},
             reflect::Reflect,
             type_register::{
@@ -240,7 +252,7 @@ use serde::{Deserialize, Serialize, de::DeserializeSeed};
                 TypeRegistration, TypeRegistry,
             },
             worlds::World,
-        }, scene::{dynamic::DynamicScene, serde::SceneDeserializer},
+        }, error::error::{Error, ErrorKind}, scene::{dynamic::DynamicScene, serde::SceneDeserializer},
     };
 
     #[derive(Serialize, Deserialize, Clone, Copy, Reflect, Component)]
@@ -258,6 +270,34 @@ use serde::{Deserialize, Serialize, de::DeserializeSeed};
     #[reflect(Serialize, Deserialize, Resource)]
     pub struct C {
         list : Vec<u32>
+    }
+
+    #[derive(Asset)]
+    pub struct Test(pub String);
+
+    pub struct ALoader;
+
+    impl AssetLoader for ALoader {
+        type Asset = Test;
+        type Error = Error;
+
+        fn load(
+            &self,
+            reader: &mut Vec<u8>,
+            _load_context: &mut LoadContext,
+        ) -> impl Future<Output = Result<Self::Asset, Self::Error>> + Send {
+            async move {
+                String::from_utf8(reader.drain(..).collect())
+                    .map(|v| Test(v))
+                    .map_err(|_| Error::new(ErrorKind::Asset, "failed to load asset Test"))
+            }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Clone, Reflect, Component)]
+    #[reflect(Serialize, Deserialize, Component)]
+    pub struct D {
+        test : Handle<Test>
     }
 
 
@@ -279,17 +319,28 @@ use serde::{Deserialize, Serialize, de::DeserializeSeed};
             list: vec![1, 2, 3]
         });
 
+        let asset_server = AssetServer::new("path");
+        asset_server.register_loader(ALoader);
+        let assets = Assets::<Test>::default();
+        asset_server.register_asset(&assets);
+        
+
+        let handle = asset_server.load("text.txt");
+
+        world.spawn(D { test : handle});
+
         let mut type_registry = TypeRegistry::new();
         type_registry.register::<A>();
         type_registry.register::<B>();
         type_registry.register::<C>();
+        type_registry.register::<D>();
 
         let dynamic_scene = DynamicScene::from_world(&world, &type_registry);
         let serialized = dynamic_scene.serialize(&type_registry).unwrap();
 
         println!("{}", serialized);
 
-        let asset_server = AssetServer::new("path");
+
         let mut load_context = LoadContext::new(&asset_server, "asset_path");
         
 
@@ -298,7 +349,7 @@ use serde::{Deserialize, Serialize, de::DeserializeSeed};
 
         let scene_deserializer = SceneDeserializer {
             type_registry: &type_registry,
-            text: &mut load_context
+            context: &mut load_context
         };
 
         let deserialization_result = scene_deserializer

@@ -1,38 +1,64 @@
 use std::collections::VecDeque;
 
-use engine_macros::Component;
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::actions::action::{Action, IntoBoxedAction};
 
 
-#[derive(Component, Default)]
-pub struct CurrentAction(pub Option<Box<dyn Action>>);
+#[derive(Component, Default, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
+pub struct CurrentAction {
+    #[serde(skip)] 
+    pub action : Option<Box<dyn Action>>
+}
 
-impl CurrentAction {
-    pub fn new() -> Self {
-        Self(None)
+impl Clone for CurrentAction {
+    fn clone(&self) -> Self {
+        Self::new()
     }
 }
 
-#[derive(Component, Default)]
-pub struct ActionQueue(pub VecDeque<Box<dyn Action>>);
+
+impl CurrentAction {
+    pub fn new() -> Self {
+        Self {
+            action : None
+        }
+    }
+}
+
+#[derive(Component, Default, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Serialize, Deserialize)]
+pub struct ActionQueue {
+    #[serde(skip)] 
+    pub actions :  VecDeque<Box<dyn Action>>
+}
+
+impl Clone for ActionQueue {
+    fn clone(&self) -> Self {
+        Self::new()
+    }
+}
 
 impl ActionQueue {
     pub fn new() -> Self {
-        Self(VecDeque::new())
+        Self {
+            actions : VecDeque::new()
+        }
     }
 
     pub fn add(mut self, action : impl IntoBoxedAction) -> Self {
-        self.0.push_back(action.into_boxed());
+        self.actions.push_back(action.into_boxed());
         self
     }
 
     pub fn push(&mut self, action : Box<dyn Action>) {
-        self.0.push_back(action);
+        self.actions.push_back(action);
     }
 
     pub fn pop(&mut self) -> Option<Box<dyn Action>> {
-        self.0.pop_front()
+        self.actions.pop_front()
     }
 }
 

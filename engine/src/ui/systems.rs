@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera, ecs::{
-        change_detection::params::Mut, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Changed, With, Without}, systems::{commands::Commands, query::{Query, Single}}, worlds::World,
+        change_detection::params::Mut, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Changed, With, Without}, systems::{commands::Commands, query::{Maybe, Query, Single}}, worlds::World,
     }, input::mouse::MousePos, ui::{
         layout::{Available, UiLayout}, render::interact::{Hovering, setup_hovering}, tree::NodeEdge, ui_camera::UiCamera, ui_node::Node,
     }, 
@@ -12,9 +12,14 @@ pub fn setup_nodes(mut commands: Commands, root_nodes: Query<EntityId, With<Node
 
 pub fn update_hovering_state(
     tree : &UiLayout,
+    root_node: Maybe<(EntityId), (With<Node>, Without<ChildOf>)>,
     node_query: Query< &mut Hovering, With<Node>>,
     mouse_pos: &MousePos,
 ) {
+    if root_node.is_none() {
+        return;
+    }
+
     let (hovering, not_hovering) = tree.check_hovering(mouse_pos.pos);
     
     for entity in hovering {
@@ -36,12 +41,14 @@ pub fn update_hovering_state(
 
 pub fn place_nodes_on_camera_view(
     mut commands: Commands,
-    main_camera: Single<&Camera, With<UiCamera>>,
-    root_node: Single<(EntityId, &Node), Without<ChildOf>>,
+    ui_camera: Single<&Camera, With<UiCamera>>,
+    root_node: Maybe<(EntityId, &Node), Without<ChildOf>>,
     world: &World,
 ) {
     let mut tree = UiLayout::default();
-    let (entity, node) = *root_node;
+    let Some((entity, node)) = *root_node else {
+        return;
+    };
 
     let node_edges = create_node_edge(world, entity, node);
 
@@ -49,7 +56,7 @@ pub fn place_nodes_on_camera_view(
     let mut node_root = NodeEdge::new(EntityId::PLACEHOLDER, &default_node);
     node_root.add_children(vec![node_edges]);
 
-    tree.create_from_root(node_root, &Available { size: main_camera.rect().size() });
+    tree.create_from_root(node_root, &Available { size: ui_camera.rect().size() });
 
     commands.insert(tree);
 }

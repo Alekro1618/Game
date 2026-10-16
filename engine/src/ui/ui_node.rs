@@ -1,4 +1,5 @@
-use engine_macros::Component;
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ecs::components::{Component, Mutable},
@@ -6,13 +7,8 @@ use crate::{
     ui::geometry::{UiRect, Val},
 };
 
-pub struct Root;
-
-impl Component for Root {
-    type Mutability = Mutable;
-}
-
-#[derive(Clone, Component, PartialEq, Debug)]
+#[derive(Clone, Component, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -380,7 +376,7 @@ impl Default for Node {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -412,7 +408,7 @@ impl Default for AlignItems {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -438,7 +434,7 @@ impl Default for JustifyItems {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum AlignSelf {
     /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
     Auto,
@@ -470,7 +466,7 @@ impl Default for AlignSelf {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum JustifySelf {
     /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
@@ -496,7 +492,7 @@ impl Default for JustifySelf {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -537,7 +533,7 @@ impl Default for AlignContent {
 /// - For CSS Grid containers, controls alignment of grid columns.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -573,7 +569,7 @@ impl Default for JustifyContent {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Display {
     Flex,
     Grid,
@@ -591,7 +587,7 @@ impl Default for Display {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BoxSizing {
     /// Length styles like width and height refer to the "border box" size (size including padding and border)
     BorderBox,
@@ -610,7 +606,7 @@ impl Default for BoxSizing {
 }
 
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis.
     Row,
@@ -633,7 +629,7 @@ impl Default for FlexDirection {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Overflow {
     /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
@@ -739,7 +735,7 @@ impl Default for Overflow {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
@@ -767,7 +763,7 @@ impl Default for OverflowAxis {
 }
 
 /// The bounds of the visible area when a UI node is clipped.
-#[derive(Default, Copy, Clone, PartialEq, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct OverflowClipMargin {
     /// Visible unclipped area
     pub visual_box: OverflowClipBox,
@@ -814,7 +810,7 @@ impl OverflowClipMargin {
     }
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum OverflowClipBox {
     /// Clip any content that overflows outside the content box
     ContentBox,
@@ -825,7 +821,7 @@ pub enum OverflowClipBox {
     BorderBox,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value.
     Relative,
@@ -843,7 +839,7 @@ impl Default for PositionType {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed.
     NoWrap,
@@ -863,7 +859,7 @@ impl Default for FlexWrap {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum GridAutoFlow {
     /// Items are placed by filling each row in turn, adding new rows as necessary.
     Row,
@@ -885,7 +881,7 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
     Px(f32),
@@ -908,7 +904,7 @@ pub enum MinTrackSizingFunction {
     Vw(f32),
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
     Px(f32),
@@ -940,7 +936,7 @@ pub enum MaxTrackSizingFunction {
     Vw(f32),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BorderRadius {
     pub top_left: Val,
     pub top_right: Val,
@@ -1156,7 +1152,7 @@ impl BorderRadius {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BackgroundColor(pub Color);
 
 impl Component for BackgroundColor {

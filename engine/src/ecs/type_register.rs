@@ -1,5 +1,5 @@
 use std::{
-    any::TypeId, collections::HashMap, sync::{Arc, RwLock},
+    any::{Any, TypeId, type_name}, collections::HashMap, sync::{Arc, RwLock},
 };
 
 use downcast_rs::{Downcast, impl_downcast};
@@ -7,7 +7,7 @@ use engine_macros::Resource;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ecs::{components::{Component, id::ComponentId}, entities::id::EntityId, reflect::{FromReflect, Reflect}, resource::Resource, storage::element_ref::ElementRef, worlds::World}, error::error::{Error, ErrorKind},
+    app::plugin::Plugin, asset::{AssetPath, AssetServer, asset::Asset, handle::{ErasedHandle, Handle, HasHandle}, loader::LoadContext}, ecs::{components::{Component, id::ComponentId}, entities::id::EntityId, reflect::{FromReflect, Reflect}, resource::Resource, storage::element_ref::ElementRef, worlds::{FromWorld, World}}, error::error::{Error, ErrorKind},
 };
 
 pub trait TypeData: Downcast + Send + Sync
@@ -53,6 +53,21 @@ impl TypeRegistration {
 
 #[derive(Resource, Clone)]
 pub struct AppTypeRegistry(pub Arc<RwLock<TypeRegistry>>);
+
+
+impl FromWorld for AppTypeRegistry {
+    fn from_world(world: &mut World) -> Self {
+        Self(Arc::new(RwLock::new(TypeRegistry::new())))
+    }
+}
+
+pub struct TypeRegistryPlugin;
+
+impl Plugin for TypeRegistryPlugin {
+    fn build(self, app: &mut crate::app::App) {
+        app.init_resource::<AppTypeRegistry>();
+    }
+}
 
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
@@ -145,7 +160,7 @@ impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
         ReflectSerialize {
             get_serialize: |value| {
                 value.downcast_ref::<T>().unwrap_or_else(|| {
-                    panic!("failed when called on type");
+                    panic!("failed when called on type {}", type_name::<T>());
                 })
             },
         }
@@ -163,6 +178,26 @@ impl ReflectSerialize {
         S: serde::Serializer,
     {
         (self.get_serialize)(value).serialize(serializer)
+    }
+}
+
+#[derive(Clone)]
+pub struct ReflectHandle {
+    replace_handles: fn(&mut Box<dyn Reflect>, &mut LoadContext)
+}
+
+impl ReflectHandle {
+    pub fn replace_handles(&self, value : &mut Box<dyn Reflect>, context : &mut LoadContext) {
+        (self.replace_handles)(value, context)
+    }
+}
+
+impl<H : HasHandle + 'static> FromType<H> for ReflectHandle
+{
+    fn from_type() -> Self {
+        ReflectHandle {
+            replace_handles: |value :  &mut Box<dyn Reflect>, context : &mut LoadContext| value.downcast_mut::<H>().unwrap().replace_handles(context)
+        }
     }
 }
 

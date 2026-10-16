@@ -11,6 +11,7 @@ pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
     fn build(self, app:  &mut engine::app::App) {
         app
+            .register_type::<Queue>()
             .add_observer(
                 on_client_spawned
             )

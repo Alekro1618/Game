@@ -10,10 +10,11 @@ impl<N : Into<usize> + Copy> SparseArrayIndex for N {
     }
 }
 
-#[derive(Debug)]
-pub struct SparseArray<T, I = usize> {
+#[derive(Debug, Clone)]
+pub struct  SparseArray<T, I = usize> {
     values : Vec<Option<T>>,
-    marker : PhantomData<I>
+    marker : PhantomData<I>,
+    len : usize,
 }
 
 impl<I, T>  Default for SparseArray<T, I> {
@@ -32,8 +33,14 @@ impl <I, T> SparseArray<T, I> {
     pub fn with_capacity(capacity : usize) -> Self {
         Self {
             values: Vec::with_capacity(capacity),
-            marker: PhantomData
+            marker: PhantomData,
+            len : 0,
         }
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
     }
 }
 
@@ -44,6 +51,11 @@ impl <I: SparseArrayIndex, T> SparseArray<T, I>  {
         if self.values.len() <= index {
             self.values.resize_with(index + 1, || None);
         }
+
+        if self.values[index].is_none() {
+            self.len += 1;
+        }
+
         self.values[index] = Some(value);
     }
 
@@ -53,6 +65,11 @@ impl <I: SparseArrayIndex, T> SparseArray<T, I>  {
         if self.values.len() == 0 {
             return None;
         }
+
+        if self.values[index].is_some() {
+            self.len -= 1;
+        }
+
         std::mem::replace(&mut self.values[index], None)
     }
 
@@ -80,6 +97,15 @@ impl <I: SparseArrayIndex + From<usize>, T> SparseArray<T, I> {
             .iter()
             .enumerate()
             .filter_map(|(i, f)| f.as_ref().and_then(|d| Some((I::from(i), d))))
+            
+    }
+
+    #[inline]
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (I, &mut T)>{
+        self.values
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, f)| f.as_mut().and_then(|d| Some((I::from(i), d))))
             
     }
 }

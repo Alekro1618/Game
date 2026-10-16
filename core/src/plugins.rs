@@ -1,4 +1,4 @@
-use engine::{BasicPlugins, animation::AnimationPlugin, app::plugin::Plugin, camera::CameraPlugin, input::InputPlugin, render::sprite_renderer::RenderPlugin, ui::{UIPlugin, click::ClickEventPlugin}, utils::{profiler::ProfilerPlugin, resources::ResourcePlugin}};
+use engine::{BasicPlugins, MinimalPlugins, animation::AnimationPlugin, app::plugin::Plugin, camera::CameraPlugin, input::InputPlugin, render::sprite_renderer::RenderPlugin, ui::{UIPlugin, click::ClickEventPlugin}, utils::{profiler::ProfilerPlugin, resources::ResourcePlugin}};
 
 use crate::{actions::ActionPlugin, client::ClientPlugin, cutscenes::{CutscenePlugin, script::ScriptPlugin}, enemy::EnemyPlugin, items::InventoryPlugin, machines::MachinePlugins, order::OrderPlugin, players::PlayerPlugin, service::ServicePlugin, ui::GameUIPlugin, utils::{grid::GridPlugin, mouse::GameCameraPlugin}};
 

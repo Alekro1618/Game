@@ -1,7 +1,9 @@
 use std::fmt::{Display, write};
 
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Food {
     CoffeeBeans,
     Espresso,

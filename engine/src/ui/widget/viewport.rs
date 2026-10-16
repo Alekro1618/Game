@@ -1,17 +1,15 @@
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
+
 use crate::ecs::{
     components::{Component, Mutable, StorageType},
     entities::id::EntityId,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Component, Reflect, Serialize, Deserialize, Copy)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct ViewportNode {
-    pub camera: Option<EntityId>,
-}
-
-impl Component for ViewportNode {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
+    pub camera: Option<EntityId>
 }
 
 impl ViewportNode {

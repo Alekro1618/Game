@@ -1,8 +1,10 @@
 
 
+use std::{ sync::Arc};
+
 use proc_macro::TokenStream;
 use syn::{punctuated::Punctuated, token::Token, *};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use proc_macro_crate::crate_name;
 
 extern crate proc_macro;
@@ -159,6 +161,111 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[proc_macro_derive(Handle, attributes(handle))]
+pub fn derive_handle(input : TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+    let engine_path  = engine_path();
+
+    let generics = input.generics.clone();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let implementations : Vec<proc_macro2::TokenStream> = match input.data {
+        Data::Struct(data_struct) => {
+            data_struct
+                .fields
+                .iter()
+                .enumerate()
+                .filter(|(_, field)| field.attrs.iter().find(|attr| attr.path().is_ident("handle")).is_some())
+                .map(|(i, field)| {
+                    let member = match field.ident {
+                        Some(ref ident) => Member::Named(ident.clone()),
+                        None => Member::Unnamed(i.into()),
+                    };
+                    
+                    let ty = &field.ty;
+
+                    quote! { 
+                        <#ty as #engine_path::asset::handle::HasHandle>::replace_handles(&mut self.#member, context);
+                    }
+                })
+                .collect()      
+        },
+        Data::Enum(data_enum) => {
+            data_enum
+                .variants
+                .iter()
+                .filter(|variant| variant.attrs.iter().find(|attr| attr.path().is_ident("handle")).is_some())
+                .map(|variant| {
+                    let vname = &variant.ident;
+
+                    let pats : Vec<proc_macro2::TokenStream> = variant.fields
+                        .iter()
+                        .enumerate()
+                        .map(|(i, field)| {
+                            let binding = format_ident!("__f{}", i);
+                            let member = match &field.ident {
+                                Some(id) => Member::Named(id.clone()),
+                                None => Member::Unnamed(i.into()),
+                            };
+                            quote! { #member: #binding }
+                        })
+                        .collect();
+
+                    let calls : Vec<proc_macro2::TokenStream> = variant.fields
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, field)| field.attrs.iter().find(|attr| attr.path().is_ident("handle")).is_some())
+                        .map(|(i, field)| {
+                            let binding = format_ident!("__f{}", i);
+                            let ty = &field.ty;
+
+                            quote! {
+                                <#ty as #engine_path::asset::handle::HasHandle>::replace_handles(#binding, context);
+                            }
+                        })
+                        .collect();
+                    
+                    quote! { Self::#vname { #(#pats,)* .. } => { #(#calls)* } }
+                })
+                .collect()
+        },
+        Data::Union(data_union) => {
+            data_union
+                .fields
+                .named
+                .iter()
+                .enumerate()
+                .filter(|(_, field)| field.attrs.iter().find(|attr| attr.path().is_ident("handle")).is_some())
+                .map(|(i, field)| {
+                    let member = match field.ident {
+                        Some(ref ident) => Member::Named(ident.clone()),
+                        None => Member::Unnamed(i.into()),
+                    };
+                    
+                    let ty = &field.ty;
+
+                    quote! { 
+                        <#ty as #engine_path::asset::handle::HasHandle>::replace_handles(&mut self.#member, context);
+                    }
+                })
+                .collect()      
+        },
+    };
+    
+    let expanded = quote! {
+        impl #impl_generics #engine_path::asset::handle::HasHandle for #name #ty_generics #where_clause {
+            fn replace_handles(&mut self, context : &mut #engine_path::asset::loader::LoadContext) {
+                #(#implementations)*
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+
+
 #[proc_macro_derive(Reflect)]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -203,6 +310,10 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
                 self
             }
 
+            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+                self
+            }
+
             fn get_type_id(&self) -> Option<::std::any::TypeId> {
                 Some(::std::any::TypeId::of::<Self>())
             }
@@ -221,7 +332,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn reflect(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemStruct);
+    let input = parse_macro_input!(item as DeriveInput);
 
     let traits = parse_macro_input!(attr with Punctuated::<Ident, Token![,]>::parse_terminated);
     let engine_path  = engine_path();

@@ -1,4 +1,5 @@
-use engine_macros::{Component, Event};
+use engine_macros::{Component, Event, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     app::plugin::Plugin, ecs::{
@@ -13,7 +14,8 @@ use crate::{
 
 mod view;
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize, Clone, Reflect)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct Camera {
     rotation: f32,
     zoom: Vec2,
@@ -23,7 +25,8 @@ pub struct Camera {
     render_target: Option<EntityId>, 
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct MainCamera;
 
 #[derive(Event)]
@@ -142,6 +145,9 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(self, app: &mut crate::app::App) {
-        app.add_observer(set_main_camera);
+        app
+            .register_type::<MainCamera>()
+            .register_type::<Camera>()
+            .add_observer(set_main_camera);
     }
 }

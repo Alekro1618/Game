@@ -1,7 +1,9 @@
-use engine_macros::Component;
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 
-#[derive(Component, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 pub enum MachineState {
     #[default]
     /// Machine is idle and any entity can interact with it using item or without. If machine doesn't take time and doesn't hold we don't change state and leave it to be. Will translate to either [`MachineState::Active`], [`MachineState::Idle`].

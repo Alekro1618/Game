@@ -104,14 +104,13 @@ impl ScriptReader {
             },
             ScriptNode::ActorDefinition { name, definition } => {
                 let animation_manager = asset_server.load(definition.animation_manager);
-                message_writer.write(ScriptNodeMessage::ActorDefinition {
-                    name: name.clone(),
-                    definition: ActorDefinitionMessage {
+                message_writer.write(ScriptNodeMessage::ActorDefinition(
+                    ActorDefinitionMessage {
                         name: definition.name.clone(),
                         animation_manager: animation_manager,
                         start: definition.start.clone(),
                     }
-                });
+                ));
                 self.state = ReaderState::Wait(ReaderWait::NeedsLoading);
             },
             _ => {

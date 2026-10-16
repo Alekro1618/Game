@@ -149,7 +149,7 @@ impl World {
     pub fn resource<R: Resource>(&mut self) -> & R{
         match self.get_resource() {
             Some(x) => x,
-            None => panic!("Requested resource does not exist in the `World`"),
+            None => panic!("Requested resource {} does not exist in the `World`", std::any::type_name::<R>()),
         }
     }
 
@@ -158,7 +158,7 @@ impl World {
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
-            None => panic!("Requested resource does not exist in the `World`"),
+            None => panic!("Requested resource {} does not exist in the `World`", std::any::type_name::<R>()),
         }
     }
 
@@ -571,11 +571,12 @@ impl World {
         out
     }
 
-    pub fn init_resource<R: Resource + Default>(&mut self) {
+    pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         let component_id = self.register_resource::<R>();
 
         if !self.resource_entities().contains::<R>(component_id) {
-            self.insert_resource(R::default());
+            let resource = R::from_world(self);
+            self.insert_resource(resource);
         }
     }
 

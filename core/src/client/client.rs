@@ -1,9 +1,11 @@
 use engine::render::color::Color;
-use engine_macros::Resource;
+use engine_macros::{Reflect, Resource, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::players::player_type::Client;
 
-#[derive(Resource)]
+#[derive(Resource, Serialize, Clone, Deserialize, Reflect)]
+#[reflect(Resource, Serialize, Deserialize)]
 pub struct ClientList {
     pub clients : Vec<Client>
 }

@@ -2,8 +2,8 @@ use std::{any::type_name, marker::PhantomData};
 
 use crate::ecs::{
     change_detection::params::Mut, query::{fetch::QueryData, filter::QueryFilter, state::QueryState}, resource::Resource, systems::{
-        commands::{Commands, command::CommandQueue}, query::{Query, Single}, system::{System, SystemInput},
-    }, worlds::World,
+        commands::{Commands, command::CommandQueue}, query::{Maybe, Query, Single}, system::{System, SystemInput},
+    }, worlds::{FromWorld, World},
 };
 
 pub struct FunctionSystem<Marker, In, Out, F>
@@ -368,7 +368,7 @@ impl SystemParamTuple for &'_ mut World {
     }
 }
 
-impl<R: Resource + Default> SystemParamTuple for &R {
+impl<R: Resource + FromWorld> SystemParamTuple for &R {
     type State = ();
 
     type Item<'w> = &'w R;
@@ -445,6 +445,25 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Sing
         }
     }
 }
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParamTuple for Maybe<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+
+    type Item<'w> = Maybe<'w, 'w, D, F>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        QueryState::new(world)
+    }
+
+    unsafe fn get_param<'w>(state: &'w mut Self::State, world: &'w mut World) -> Self::Item<'w> {
+        let query = state.query(world);
+        Maybe {
+            item: query.single_inner(), 
+            _filter: PhantomData
+        }
+    }
+}
+
 
 
 

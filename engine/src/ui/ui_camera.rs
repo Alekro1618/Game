@@ -1,8 +1,10 @@
-use engine_macros::Component;
+use engine_macros::{Component, Reflect, reflect};
+use serde::{Deserialize, Serialize};
 
 use crate::{camera::Camera, ecs::{change_detection::params::Mut, query::filter::With, systems::{commands::Commands, query::Single}}, math::{rect::Rect, vec::Vec2}, window::Window};
 
-#[derive(Component)]
+#[derive(Component, Clone, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 pub struct UiCamera;
 
 pub fn setup_ui_camera(

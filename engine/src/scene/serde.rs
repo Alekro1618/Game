@@ -163,7 +163,7 @@ pub struct SceneDeserializer<'a, 'c> {
     /// Type registry in which the components and resources types used in the scene to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut LoadContext<'c>,
+    pub context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a, '_> {
@@ -178,7 +178,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a, '_> {
             &[SCENE_RESOURCES, SCENE_ENTITIES],
             SceneVisitor {
                 type_registry: self.type_registry,
-                text: self.text,
+                context: self.context,
             },
         )
     }
@@ -186,7 +186,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a, '_> {
 
 struct SceneVisitor<'a, 'c> {
     type_registry: &'a TypeRegistry,
-    text: &'a mut LoadContext<'c>,
+    context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneVisitor<'a, '_> {
@@ -203,14 +203,14 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a, '_> {
         let resources = seq
             .next_element_seed(SceneMapDeserializer {
                 registry: self.type_registry,
-                text: self.text,
+                context: self.context,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
 
         let entities = seq
             .next_element_seed(SceneEntitiesDeserializer {
                 type_registry: self.type_registry,
-                text: self.text,
+                context: self.context,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
@@ -234,7 +234,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a, '_> {
                     }
                     resources = Some(map.next_value_seed(SceneMapDeserializer {
                         registry: self.type_registry,
-                        text: self.text,
+                        context: self.context,
                     })?);
                 }
                 SceneField::Entities => {
@@ -243,7 +243,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a, '_> {
                     }
                     entities = Some(map.next_value_seed(SceneEntitiesDeserializer {
                         type_registry: self.type_registry,
-                        text: self.text,
+                        context: self.context,
                     })?);
                 }
             }
@@ -264,7 +264,7 @@ pub struct SceneEntitiesDeserializer<'a, 'c> {
     /// Type registry in which the component types used by the entities to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut LoadContext<'c>,
+    pub context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a, '_> {
@@ -276,14 +276,14 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a, '_> {
     {
         deserializer.deserialize_map(SceneEntitiesVisitor {
             type_registry: self.type_registry,
-            text: self.text,
+            context: self.context,
         })
     }
 }
 
 struct SceneEntitiesVisitor<'a, 'c> {
     type_registry: &'a TypeRegistry,
-    text: &'a mut LoadContext<'c>,
+    context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a, '_> {
@@ -302,7 +302,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a, '_> {
             let entity = map.next_value_seed(SceneEntityDeserializer {
                 entity,
                 type_registry: self.type_registry,
-                text: self.text,
+                context: self.context,
             })?;
             entities.push(entity);
         }
@@ -318,7 +318,7 @@ pub struct SceneEntityDeserializer<'a, 'c> {
     /// Type registry in which the component types used by the entity to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut LoadContext<'c>,
+    pub context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a, '_> {
@@ -334,7 +334,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a, '_> {
             SceneEntityVisitor {
                 entity: self.entity,
                 registry: self.type_registry,
-                text: self.text,
+                context: self.context,
             },
         )
     }
@@ -343,7 +343,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a, '_> {
 struct SceneEntityVisitor<'a, 'c> {
     entity: EntityId,
     registry: &'a TypeRegistry,
-    text: &'a mut LoadContext<'c>,
+    context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a, '_> {
@@ -360,7 +360,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a, '_> {
         let components = seq
             .next_element_seed(SceneMapDeserializer {
                 registry: self.registry,
-                text: self.text,
+                context: self.context,
             })?
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
 
@@ -384,7 +384,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a, '_> {
 
                     components = Some(map.next_value_seed(SceneMapDeserializer {
                         registry: self.registry,
-                        text: self.text,
+                        context: self.context,
                     })?);
                 }
             }
@@ -405,7 +405,7 @@ pub struct SceneMapDeserializer<'a, 'c> {
     /// Type registry in which the types of the values to deserialize are registered.
     pub registry: &'a TypeRegistry,
     /// The [`LoadFromPath`] implementation allowing us to deserialize asset handles.
-    pub text: &'a mut LoadContext<'c>,
+    pub context: &'a mut LoadContext<'c>,
 }
 
 impl<'a , 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a, '_> {
@@ -417,14 +417,14 @@ impl<'a , 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a, '_> {
     {
         deserializer.deserialize_map(SceneMapVisitor {
             registry: self.registry,
-            text: self.text,
+            context: self.context,
         })
     }
 }
 
 struct SceneMapVisitor<'a, 'c> {
     registry: &'a TypeRegistry,
-    text: &'a mut LoadContext<'c>,
+    context: &'a mut LoadContext<'c>,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a, '_> {
@@ -439,7 +439,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a, '_> {
         A: SeqAccess<'de>,
     {
         let mut dynamic_properties = Vec::new();
-        while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
+        while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry, self.context))? {
             dynamic_properties.push(entity);
         }
 
@@ -457,13 +457,14 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a, '_> {
             let typed_reflect_deserializer = TypedReflectDeserializer::new(
                     registration,
                     self.registry,
+                    self.context
             );
 
             let value: Box<dyn Reflect> = map.next_value_seed(
                 typed_reflect_deserializer
             )?;
 
-            let value = value.reflect_clone().unwrap();
+            //let value = value.reflect_clone().unwrap();
 
             entries.push(value);
         }
