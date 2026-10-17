@@ -38,7 +38,9 @@ impl ClickEvent for MainMenuEvent  {
 
 impl MainMenuEvent {
     fn new(&self, commands : &mut Commands) {
-        
+        commands.with_resource::<GameState>(|mut game_state| {
+            *game_state = GameState::Simulator
+        });
     }
 
     fn load(&self, commands : &mut Commands) {

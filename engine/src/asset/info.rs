@@ -243,6 +243,12 @@ impl AssetInfos {
             return;
         }
 
+        self
+            .infos
+            .get_mut(&loaded_asset_index)
+            .unwrap()
+            .load_state = LoadState::Loaded;
+
         loaded_asset.value.insert(loaded_asset_index, world);
     }
 }

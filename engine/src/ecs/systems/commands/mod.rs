@@ -222,7 +222,7 @@ impl<'w> Commands<'w> {
         });
     }
 
-    pub fn queue(&mut self, fun: impl Fn(&mut World) -> () + Send + Sync + 'static) {
+    pub fn queue(&mut self, fun: impl FnOnce(&mut World) -> () + Send + Sync + 'static) {
         self.queue.push(move |world| {
             fun(world);
         });

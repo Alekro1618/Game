@@ -1,70 +1,80 @@
+use std::collections::HashSet;
+
 use crate::{
     camera::Camera, ecs::{
-        change_detection::params::Mut, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Changed, With, Without}, systems::{commands::Commands, query::{Maybe, Query, Single}}, worlds::World,
+        change_detection::params::Mut, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Added, Changed, With, Without}, systems::{commands::Commands, query::{Maybe, Query, Single}}, worlds::World,
     }, input::mouse::MousePos, ui::{
-        layout::{Available, UiLayout}, render::interact::{Hovering, setup_hovering}, tree::NodeEdge, ui_camera::UiCamera, ui_node::Node,
+        layout::{Available, UiLayout, UiLayoutChildOf}, render::interact::{Hovering, setup_hovering}, tree::{self, NodeEdge}, ui_camera::UiCamera, ui_node::Node,
     }, 
 };
 
-pub fn setup_nodes(mut commands: Commands, root_nodes: Query<EntityId, With<Node>>) {
+pub fn setup_nodes(mut commands: Commands, root_nodes: Query<EntityId, (With<Node>, Added<Node>)>) {
     setup_hovering(&mut commands, &root_nodes);
 }
 
 pub fn update_hovering_state(
-    tree : &UiLayout,
-    root_node: Maybe<(EntityId), (With<Node>, Without<ChildOf>)>,
+    ui_layouts : Query<&UiLayout>,
     node_query: Query< &mut Hovering, With<Node>>,
     mouse_pos: &MousePos,
 ) {
-    if root_node.is_none() {
-        return;
-    }
-
-    let (hovering, not_hovering) = tree.check_hovering(mouse_pos.pos);
+    for ui_layout in ui_layouts {
+        let (hovering, not_hovering) 
+            = ui_layout.check_hovering(mouse_pos.pos);
     
-    for entity in hovering {
-        if let Ok(mut hovering) = node_query.get(entity) {
-            if !hovering.0 {
-                hovering.0 = true;
+        for entity in hovering {
+            if let Ok(mut hovering) = node_query.get(entity) {
+                if !hovering.0 {
+                    hovering.0 = true;
+                }
+            }
+        }
+
+        for entity in not_hovering {
+            if let Ok(mut hovering) = node_query.get(entity) {
+                if hovering.0 {
+                    hovering.0 = false;
+                }
             }
         }
     }
 
-    for entity in not_hovering {
-        if let Ok(mut hovering) = node_query.get(entity) {
-            if hovering.0 {
-                hovering.0 = false;
-            }
-        }
-    }
+    
 }
 
 pub fn place_nodes_on_camera_view(
     mut commands: Commands,
     ui_camera: Single<&Camera, With<UiCamera>>,
-    root_node: Maybe<(EntityId, &Node), Without<ChildOf>>,
+    root_nodes: Query<(EntityId, &Node), (Without<ChildOf>, Added<Node>)>,
     world: &World,
 ) {
-    let mut tree = UiLayout::default();
-    let Some((entity, node)) = *root_node else {
-        return;
-    };
+    let available = Available { size: ui_camera.rect().size() };
+    for (entity, root_node) in root_nodes {
+        let mut tree = UiLayout::default();
 
-    let node_edges = create_node_edge(world, entity, node);
+        let node_edges = create_node_edge(world, entity, &root_node);
 
-    let default_node = Node::VIEWPORT;
-    let mut node_root = NodeEdge::new(EntityId::PLACEHOLDER, &default_node);
-    node_root.add_children(vec![node_edges]);
+        let default_node = Node::VIEWPORT;
+        let mut node_root = NodeEdge::new(EntityId::PLACEHOLDER, &default_node);
+        node_root.add_children(vec![node_edges]);
 
-    tree.create_from_root(node_root, &Available { size: ui_camera.rect().size() });
+        tree.create_from_root(node_root, &available.clone());
 
-    commands.insert(tree);
+        commands.queue(move |world|{
+            let entites : Vec<EntityId> = tree.entities().collect();
+            let entity_id = world.spawn(tree);
+            entites
+                .iter()
+                .for_each(|e| {
+                    world.insert(*e, UiLayoutChildOf(entity_id));
+                });
+        });
+    }
 }
 
 pub fn create_node_edge<'a>(
     world: &'a World, 
     parent: EntityId, 
-    node: &'a Node
+    node: &'a Node,
 ) -> NodeEdge<'a> {
     let mut node_edge = NodeEdge::new(parent, node);
 
@@ -85,19 +95,20 @@ pub fn create_node_edge<'a>(
 
 
 pub fn on_layout_tree_update(
-    mut tree: Mut<UiLayout>, 
-    query : Query<(EntityId, &Node), Changed<Node>>,
+    ui_layouts : Query<&mut UiLayout>, 
+    query : Query<(EntityId, &Node, &UiLayoutChildOf), Changed<Node>>,
     main_camera: Single<&mut Camera, With<UiCamera>>,
 ) {
-    let mut needs_recompute = main_camera.is_changed();
-
-    for (entity, node) in query.iter() {
-        needs_recompute = true;
-        tree.update_node(entity, node, &Available { size: main_camera.rect().size() });
+    let mut needs_recompute = HashSet::new();
+    for (entity, node, child_of) in query.iter() {
+        let mut ui_layout = ui_layouts.get(child_of.0).unwrap();
+        ui_layout.update_node(entity, node, &Available { size: main_camera.rect().size() });
+        needs_recompute.insert(child_of.0);
     }
 
-    if needs_recompute {
-        tree.recompute(&main_camera.rect().size())
+    for entity_id in needs_recompute {
+        let mut ui_layout = ui_layouts.get(entity_id).unwrap();
+        ui_layout.recompute(&main_camera.rect().size())
     }
 }
 

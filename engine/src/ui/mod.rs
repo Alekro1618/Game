@@ -23,15 +23,15 @@ impl Plugin for UIPlugin {
             .register_type::<ImageNode>()
             .register_type::<Node>()
             .register_type::<UiCamera>()
-            .add_systems(PostStartup, (
-                setup_ui_camera,
-                setup_nodes,
-                place_nodes_on_camera_view
-            ))
-            .add_systems(
-                PreUpdate, 
-                update_hovering_state.run_if(resource_changed::<MousePos>())
+            .add_systems(PostStartup, 
+                setup_ui_camera
             )
+            .add_systems(
+                PreUpdate,(
+                    update_hovering_state.run_if(resource_changed::<MousePos>()),
+                    setup_nodes,
+                    place_nodes_on_camera_view
+                ))
             .add_systems(PostUpdate, (
                 resize_to_window,
                 on_layout_tree_update

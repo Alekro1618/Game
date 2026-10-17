@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
-use engine_macros::Resource;
+use engine_macros::{Component, Resource};
 use taffy::{Layout, NodeId, TaffyTree};
 
 use crate::{
@@ -12,7 +12,10 @@ use crate::{
     },
 };
 
-#[derive(Default, Resource)]
+#[derive(Component)]
+pub struct UiLayoutChildOf(pub EntityId);
+
+#[derive(Default, Component)]
 pub struct UiLayout {
     pub tree : UiTree,
     pub root : Option<NodeId>,
@@ -76,6 +79,10 @@ impl UiLayout {
             not.into_iter()
                 .map(|n| *self.node_to_entity.get(&n).unwrap())  
         )
+    }
+
+    pub fn entities(&self) -> impl Iterator<Item=EntityId> {
+        self.entity_to_node.iter().map(|(key, _)| *key)
     }
 }
 

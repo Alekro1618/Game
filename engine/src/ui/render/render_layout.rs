@@ -2,24 +2,26 @@ use taffy::{Layout, NodeId};
 
 use crate::{
     camera::Camera, ecs::{
-        entities::id::EntityId, query::filter::With, systems::query::Single, worlds::World,
+        entities::id::EntityId, query::filter::With, systems::query::{Query, Single}, worlds::World,
     }, image::TempQuadImageStorage, math::vec::{Vec2, vec2}, render::color::Color, ui::{ layout::UiLayout, ui_camera::UiCamera, ui_node::BackgroundColor, widget::{ImageNode, Text, TextColor, TextFont, TextSize},
     }
 };
 
 pub fn render_layout_tree(
-    ui_layout: &UiLayout,
+    ui_layouts: Query<&UiLayout>,
     world: &World,
     camera : Single<&Camera, With<UiCamera>>,
     image_storage : &TempQuadImageStorage,
 ) {
     macroquad::camera::set_camera(*camera);
 
-    let Some(ref root) = ui_layout.root else  {
-        return;
-    };
-    
-    render_layout_box(ui_layout, world, *root, camera.rect().min, image_storage);
+    for ui_layout in ui_layouts {
+        let Some(ref root) = ui_layout.root else  {
+            return;
+        };
+        
+        render_layout_box(ui_layout, world, *root, camera.rect().min, image_storage);
+    }
 
     macroquad::camera::set_default_camera();
 }

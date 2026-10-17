@@ -250,6 +250,13 @@ impl AssetServer {
         handle
     }
 
+    pub fn is_loaded<A: Asset>(&self, handle : &Handle<A>) -> bool {
+        match self.load_state(handle.index()) {
+            LoadState::Loaded => true,
+            _ => false,
+        }
+    }
+
     pub fn load_state(&self, id: AssetIndex) -> LoadState {
         self.get_load_state(id).unwrap_or(LoadState::NotLoaded)
     }
