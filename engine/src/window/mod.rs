@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app::{main_schedule::ScheduleLabel, plugin::Plugin}, ecs::{
-        change_detection::params::Mut, components::{Component, Mutable, StorageType}, event::Event, observer::system_param::On, resource::Resource, systems::commands::Commands,
+        change_detection::params::Mut, event::Event, observer::system_param::On, systems::commands::Commands,
     }, math::vec::{Vec2, vec2},
 };
 

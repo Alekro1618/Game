@@ -2,7 +2,7 @@ use std::{collections::{HashMap, HashSet}, sync::atomic::{AtomicU32, Ordering}};
 
 use engine_macros::{Component, Event, Resource};
 
-use crate::{asset::{asset::{AssetIndex, Assets}, handle::Handle}, ecs::{change_detection::params::Mut, entities::id::EntityId, hierarchy::ChildOf, query::filter::{Added, Changed}, systems::{commands::Commands, query::Query}, worlds::World}, error::error::Error, scene::{components::DynamicSceneRoot, dynamic::DynamicScene}};
+use crate::{asset::{asset::{AssetIndex, Assets}, handle::Handle}, ecs::{change_detection::params::Mut, entities::id::EntityId, hierarchy::ChildOf, query::filter::Added, systems::{commands::Commands, query::Query}, worlds::World}, error::error::Error, scene::{components::DynamicSceneRoot, dynamic::DynamicScene}};
 
 static ATOMIC : AtomicU32 = AtomicU32::new(0);
 

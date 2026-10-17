@@ -1,11 +1,10 @@
 use std::{
-    any::TypeId, collections::{HashMap, HashSet, VecDeque}, marker::PhantomData, sync::Arc,
+    any::TypeId, collections::{HashMap, VecDeque}, marker::PhantomData, sync::Arc,
 };
 
-use engine_macros::{Reflect, reflect};
 use serde::{Deserialize, Serialize};
 
-use crate::{asset::{AssetPath, asset::{Asset, AssetIndex, AssetIndexAllocator}, loader::LoadContext}, ecs::{reflect::{FromReflect, Reflect}, type_register::{FromType, GetTypeRegistration, ReflectFromReflect, ReflectHandle, TypeRegistration}}, utils::{SparseArray, SparseArrayIndex}};
+use crate::{asset::{AssetPath, asset::{Asset, AssetIndex, AssetIndexAllocator}, loader::LoadContext}, ecs::reflect::{FromReflect, Reflect}, utils::{SparseArray, SparseArrayIndex}};
 
 #[derive(Clone, Debug)]
 pub struct AssetHandleProvider {
@@ -148,7 +147,7 @@ pub trait HasHandle {
 
 impl<A: Asset> HasHandle for Handle<A> {
     fn replace_handles(&mut self, context : &mut LoadContext) {
-        if matches!(&self, Weak) {
+        if matches!(&self, _Weak) {
             let _ = core::mem::replace(self, context.asset_server.load(self.path()));
         }
     }
@@ -227,10 +226,10 @@ impl<A: Asset> Serialize for Handle<A> {
     where
         S: serde::Serializer {
         match self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle, lazy: _, _phantom } => {
                 strong_handle.path.serialize(serializer)
             },
-            Handle::Weak { path, lazy } => {
+            Handle::Weak { path, lazy: _ } => {
                 path.serialize(serializer)
             },
         }
@@ -276,10 +275,10 @@ impl<A: Asset> Handle<A> {
 
     pub fn is_lazy(&self) -> bool {
         match self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle: _, lazy, _phantom } => {
                 *lazy
             },
-            Handle::Weak { path, lazy } => {
+            Handle::Weak { path: _, lazy } => {
                 *lazy
             },
         }
@@ -287,10 +286,10 @@ impl<A: Asset> Handle<A> {
 
     pub fn unlazify(&mut self) {
         match self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle: _, lazy, _phantom } => {
                 *lazy = false;
             },
-            Handle::Weak { path, lazy } => {
+            Handle::Weak { path: _, lazy } => {
                 *lazy = false;
             },
         }
@@ -298,10 +297,10 @@ impl<A: Asset> Handle<A> {
 
     pub fn lazy(mut self) -> Self {
         match &mut self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle: _, lazy, _phantom } => {
                 *lazy = true;
             },
-            Handle::Weak { path, lazy } => {
+            Handle::Weak { path: _, lazy } => {
                 *lazy = true;
             },
         }
@@ -310,10 +309,10 @@ impl<A: Asset> Handle<A> {
 
     pub fn index(&self) -> AssetIndex {
         match self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle, lazy: _, _phantom } => {
                 strong_handle.index()
             },
-            Handle::Weak { path, lazy } => {
+            Handle::Weak { path: _, lazy: _ } => {
                 panic!("Couldn't get id for weak handle");
             },
         }
@@ -322,10 +321,10 @@ impl<A: Asset> Handle<A> {
 
     pub fn path(&self) -> AssetPath {
         match self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle, lazy: _, _phantom } => {
                 strong_handle.path()
             },
-            Handle::Weak { path, lazy } => {
+            Handle::Weak { path, lazy: _ } => {
                 path.clone()
             },
         }
@@ -335,7 +334,7 @@ impl<A: Asset> Handle<A> {
 impl<A: Asset> Clone for Handle<A> {
     fn clone(&self) -> Self {
         match self {
-            Handle::Strong { strong_handle, lazy, _phantom } => {
+            Handle::Strong { strong_handle, lazy: _, _phantom } => {
                 Self::new(strong_handle.index().clone(), strong_handle.path().clone())
             },
             Handle::Weak { path, lazy } => {

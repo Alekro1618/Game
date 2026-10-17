@@ -1,4 +1,4 @@
-use crate::{animation::AnimationPlugin, app::{App, plugin::Plugin}, asset::AssetPlugin, camera::CameraPlugin, exit::ExitPlugin, image::ImagePlugin, input::InputPlugin, math::transform::TransformPlugin, relationship::RelationshipPlugin, render::{sprite::SpritePlugin, sprite_renderer::RenderPlugin}, scene::ScenePlugin, ui::UIPlugin, utils::resources::ResourcePlugin, window::WindowPlugin};
+use crate::{animation::AnimationPlugin, app::{App, plugin::Plugin}, asset::AssetPlugin, camera::CameraPlugin, image::ImagePlugin, input::InputPlugin, math::transform::TransformPlugin, relationship::RelationshipPlugin, render::{sprite::SpritePlugin, sprite_renderer::RenderPlugin}, scene::ScenePlugin, ui::UIPlugin, utils::resources::ResourcePlugin, window::WindowPlugin};
 
 pub mod animation;
 pub mod app;

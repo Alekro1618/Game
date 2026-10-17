@@ -1,10 +1,7 @@
 use engine_macros::{Component, Reflect, reflect};
 use serde::{Deserialize, Serialize};
 
-use crate::ecs::{
-    components::{Component, Mutable, StorageType},
-    entities::id::EntityId,
-};
+use crate::ecs::entities::id::EntityId;
 
 #[derive(Debug, Clone, Component, Reflect, Serialize, Deserialize, Copy)]
 #[reflect(Component, Serialize, Deserialize)]

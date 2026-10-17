@@ -4,7 +4,7 @@ use crate::ecs::{
     change_detection::tick::Tick, components::{
         id::{ComponentId, ComponentIdsArray},
         register::ComponentsRegistrator,
-    }, query::iter, storage::Table,
+    }, storage::Table,
 };
 pub mod info;
 
@@ -28,26 +28,26 @@ pub trait Bundle: Send + Sync + 'static {
 
 impl Bundle for () {
     fn component_ids(
-        components: &mut ComponentsRegistrator,
+        _components: &mut ComponentsRegistrator,
     ) -> impl Iterator<Item = (TypeId, ComponentId)> + use<> {
         vec![].into_iter()
     }
 
-    fn insert_into_table(self, components: &ComponentIdsArray, table: &mut Table, tick: Tick) {
+    fn insert_into_table(self, _components: &ComponentIdsArray, _table: &mut Table, _tick: Tick) {
 
     }
 
     fn replace_in_table(
         self,
-        components: &ComponentIdsArray,
-        table: &mut Table,
-        row: usize,
-        tick: Tick,
+        _components: &ComponentIdsArray,
+        _table: &mut Table,
+        _row: usize,
+        _tick: Tick,
     ) {
 
     }
 
-    fn remove_from_table(components: &ComponentIdsArray, table: &mut Table, row: usize, tick: Tick) {
+    fn remove_from_table(_components: &ComponentIdsArray, _table: &mut Table, _row: usize, _tick: Tick) {
 
     }
 }

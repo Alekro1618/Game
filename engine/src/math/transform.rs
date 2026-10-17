@@ -2,7 +2,7 @@ use engine_macros::{Component, Reflect, reflect};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::plugin::Plugin, ecs::components::{Component, Mutable, StorageType}, math::vec::Vec2,
+    app::plugin::Plugin, math::vec::Vec2,
 };
 
 pub struct TransformPlugin;

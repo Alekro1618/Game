@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
-use engine_macros::{Component, Reflect, reflect};
+use engine_macros::Component;
 
-use crate::ecs::components::{Component, Mutable, StorageType};
 
 #[derive(Component)]
 pub struct EventWrapperComponent<E: Event>(PhantomData<E>);

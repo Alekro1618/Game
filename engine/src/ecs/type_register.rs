@@ -1,5 +1,5 @@
 use std::{
-    any::{Any, TypeId, type_name}, collections::HashMap, sync::{Arc, RwLock},
+    any::{TypeId, type_name}, collections::HashMap, sync::{Arc, RwLock},
 };
 
 use downcast_rs::{Downcast, impl_downcast};
@@ -7,7 +7,7 @@ use engine_macros::Resource;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::plugin::Plugin, asset::{AssetPath, AssetServer, asset::Asset, handle::{ErasedHandle, Handle, HasHandle}, loader::LoadContext}, ecs::{components::{Component, id::ComponentId}, entities::id::EntityId, reflect::{FromReflect, Reflect}, resource::Resource, storage::element_ref::ElementRef, worlds::{FromWorld, World}}, error::error::{Error, ErrorKind},
+    app::plugin::Plugin, asset::{handle::HasHandle, loader::LoadContext}, ecs::{components::{Component, id::ComponentId}, entities::id::EntityId, reflect::{FromReflect, Reflect}, resource::Resource, storage::element_ref::ElementRef, worlds::{FromWorld, World}}, error::error::{Error, ErrorKind},
 };
 
 pub trait TypeData: Downcast + Send + Sync
@@ -56,7 +56,7 @@ pub struct AppTypeRegistry(pub Arc<RwLock<TypeRegistry>>);
 
 
 impl FromWorld for AppTypeRegistry {
-    fn from_world(world: &mut World) -> Self {
+    fn from_world(_world: &mut World) -> Self {
         Self(Arc::new(RwLock::new(TypeRegistry::new())))
     }
 }

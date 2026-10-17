@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use crate::{
     camera::Camera, ecs::{
-        change_detection::params::Mut, entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Added, Changed, With, Without}, systems::{commands::Commands, query::{Maybe, Query, Single}}, worlds::World,
+        entities::id::EntityId, hierarchy::{ChildOf, Children}, query::filter::{Added, Changed, With, Without}, systems::{commands::Commands, query::{Query, Single}}, worlds::World,
     }, input::mouse::MousePos, ui::{
-        layout::{Available, UiLayout, UiLayoutChildOf}, render::interact::{Hovering, setup_hovering}, tree::{self, NodeEdge}, ui_camera::UiCamera, ui_node::Node,
+        layout::{Available, UiLayout, UiLayoutChildOf}, render::interact::{Hovering, setup_hovering}, tree::NodeEdge, ui_camera::UiCamera, ui_node::Node,
     }, 
 };
 

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
-use engine_macros::{Component, Resource};
+use engine_macros::Component;
 use taffy::{Layout, NodeId, TaffyTree};
 
 use crate::{

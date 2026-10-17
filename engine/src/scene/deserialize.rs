@@ -1,4 +1,4 @@
-use std::{any::Any, fmt::{self, Formatter}};
+use std::fmt::{self, Formatter};
 
 use serde::{
     Deserialize, Deserializer,
@@ -6,7 +6,7 @@ use serde::{
 };
 
 use crate::{
-    asset::{AssetPath, loader::LoadContext}, ecs::{
+    asset::loader::LoadContext, ecs::{
         reflect::Reflect, type_register::{ReflectDeserialize, ReflectHandle, TypeRegistration, TypeRegistry},
     }, scene::registration::TypeRegistrationDeserializer,
 };

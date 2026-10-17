@@ -1,10 +1,9 @@
-use std::any::Any;
 
 use engine_macros::{Component, Handle, Reflect, reflect};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::plugin::Plugin, asset::handle::{Handle, HasHandle}, ecs::components::{Component, Mutable, StorageType}, image::{BLANK_IMAGE_HANDLE, Image}, math::{rect::Rect, vec::Vec2}, render::color::Color,
+    app::plugin::Plugin, asset::handle::Handle, image::{BLANK_IMAGE_HANDLE, Image}, math::{rect::Rect, vec::Vec2}, render::color::Color,
 };
 
 pub struct SpritePlugin;
